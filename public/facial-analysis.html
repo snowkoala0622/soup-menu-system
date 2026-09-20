@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 湯品推薦 — 補湯菜單</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F0E5;
+    --paper-deep: #EAE2D0;
+    --ink: #2B2620;
+    --ink-soft: #6B6255;
+    --herb: #4F6353;
+    --herb-deep: #384A3C;
+    --seal: #A63D2F;
+    --border: #DDD2BC;
+    --gold: #B08D57;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(79,99,83,0.06) 0, transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(166,61,47,0.05) 0, transparent 40%);
+    font-family: 'Noto Sans TC', sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 44px 24px 20px;
+    text-align: center;
+    position: relative;
+  }
+  .back-link {
+    position: absolute;
+    top: 24px; left: 24px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+  }
+  .back-link:hover { color: var(--herb-deep); }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: var(--herb);
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 28px;
+    margin: 0 0 8px;
+    letter-spacing: 0.05em;
+  }
+  .sub {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  main {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 16px 24px 80px;
+  }
+
+  .not-logged-in {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-soft);
+  }
+  .not-logged-in a { color: var(--herb-deep); font-weight: 700; }
+
+  .upload-card {
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 26px;
+    text-align: center;
+  }
+
+  .camera-box {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 4 / 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .camera-box video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1); /* 前鏡頭鏡像顯示，看起來像照鏡子比較自然 */
+  }
+  #face-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    pointer-events: none;
+  }
+  .detect-status {
+    position: absolute;
+    left: 0; right: 0; bottom: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #F5F0E5;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    pointer-events: none;
+  }
+  .capture-ring {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .capture-ring svg { width: 100%; height: 100%; }
+  .capture-ring circle {
+    fill: none;
+    stroke: var(--herb);
+    stroke-width: 5;
+    stroke-linecap: round;
+    transform-origin: center;
+    transform: rotate(-90deg);
+    transition: stroke-dashoffset 0.08s linear;
+    opacity: 0;
+  }
+  .capture-ring circle.active { opacity: 1; }
+  .camera-placeholder {
+    color: rgba(245,240,229,0.75);
+    font-size: 12.5px;
+    padding: 20px;
+    line-height: 1.7;
+  }
+  .camera-placeholder .icon { font-size: 28px; margin-bottom: 8px; }
+
+  .album-link {
+    display: inline-block;
+    margin-top: 14px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--herb-deep);
+    background: none;
+    border: none;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .camera-error {
+    color: var(--seal);
+    font-size: 12.5px;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  .preview-wrap { display: none; }
+  .preview-wrap.show { display: block; }
+  .preview-img {
+    max-width: 100%;
+    max-height: 260px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+  }
+
+  .analyze-btn {
+    margin-top: 18px;
+    width: 100%;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-weight: 700;
+    font-size: 14.5px;
+    padding: 12px 0;
+    border: none;
+    border-radius: 6px;
+    background: var(--seal);
+    color: #fff;
+    cursor: pointer;
+  }
+  .analyze-btn:hover { background: #8f3527; }
+  .analyze-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .disclaimer {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 14px;
+    line-height: 1.6;
+  }
+
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 50px 20px;
+  }
+  .loading.show { display: block; }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--herb);
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading .msg { font-size: 13px; color: var(--ink-soft); }
+
+  .result {
+    display: none;
+    margin-top: 22px;
+  }
+  .result.show { display: block; }
+
+  .result-section {
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 22px 24px;
+    margin-bottom: 16px;
+  }
+
+  .constitution-badge {
+    display: inline-block;
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--seal);
+    margin-bottom: 4px;
+  }
+  .constitution-label { font-size: 11.5px; color: var(--ink-soft); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .reasoning { font-size: 13.5px; line-height: 1.7; color: var(--ink); margin-top: 10px; }
+
+  .feature-grid {
+    display: grid;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .feature-row .flabel {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--herb-deep);
+    letter-spacing: 0.05em;
+    margin-bottom: 3px;
+  }
+  .feature-row .fvalue {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+
+  .dish-card {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .dish-photo {
+    width: 84px; height: 84px;
+    border-radius: 6px;
+    background: var(--paper-deep);
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+  }
+  .dish-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .dish-info .dname {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 17px;
+    margin-bottom: 4px;
+  }
+  .dish-info .dprice { font-size: 13px; color: var(--seal); font-weight: 700; }
+  .rec-reason {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .add-cart-btn {
+    width: 100%;
+    margin-top: 16px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 11px 0;
+    border-radius: 6px;
+    border: 1px solid var(--herb);
+    background: none;
+    color: var(--herb-deep);
+    cursor: pointer;
+  }
+  .add-cart-btn:hover { background: var(--herb); color: #F5F0E5; }
+
+  .retry-btn {
+    display: block;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    width: 100%;
+  }
+
+  .error-box {
+    display: none;
+    background: rgba(166,61,47,0.08);
+    border: 1px solid rgba(166,61,47,0.25);
+    color: var(--seal);
+    font-size: 13px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-top: 16px;
+  }
+  .error-box.show { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/index.html" class="back-link">← 返回菜單</a>
+ 
+  <h1>AI 湯品推薦</h1>
+  <div class="sub">將臉對準畫面，偵測到臉部會自動拍照</div>
+</header>
+
+<main id="main">
+  <!-- 內容由 JS 動態渲染 -->
+</main>
+
+<canvas id="camera-canvas" style="display:none;"></canvas>
+
+<script>
+// token 現在是「可有可無」：訪客沒有 token 一樣能分析，
+// 只是分析結果不會存進會員的歷史紀錄裡。
+const token = localStorage.getItem('token');
+let selectedFile = null;
+let cameraStream = null;
+
+function renderUploadUI() {
+  document.getElementById('main').innerHTML = `
+    <div class="upload-card">
+      <div class="camera-box" id="camera-box">
+        <div class="camera-placeholder" id="camera-placeholder">
+          <div class="icon">📷</div>
+          正在開啟相機...
+        </div>
+      </div>
+
+      <div class="preview-wrap" id="preview-wrap">
+        <img class="preview-img" id="preview-img" alt="預覽照片">
+        <div>
+          <button class="album-link" id="retake-btn">重新拍攝</button>
+        </div>
+      </div>
+
+      <button class="analyze-btn" id="analyze-btn" disabled>開始分析</button>
+      <div class="disclaimer">這是AI的養生參考，並非醫療診斷。若有健康疑慮，請諮詢專業醫師。${token ? '' : '<br>未登入也能使用；若<a href="/login.html">登入會員</a>，這次的分析結果會保存在您的紀錄中。'}</div>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div class="msg">AI 正在分析中，約需幾秒鐘...</div>
+    </div>
+
+    <div class="error-box" id="error-box"></div>
+
+    <div class="result" id="result"></div>
+  `;
+
+  document.getElementById('retake-btn').addEventListener('click', resetToCamera);
+  document.getElementById('analyze-btn').addEventListener('click', analyze);
+
+  openCamera();
+}
+
+// ---- 相機（頁面一開就直接嘗試開啟，直接在畫面上即時預覽）----
+async function openCamera() {
+  const box = document.getElementById('camera-box');
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    box.innerHTML = `<div class="camera-error">此瀏覽器不支援相機功能，暫時無法使用 AI 分析</div>`;
+    return;
+  }
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false
+    });
+    box.innerHTML = `
+      <video id="camera-video" autoplay playsinline muted></video>
+      <canvas id="face-overlay"></canvas>
+      <div class="capture-ring" id="capture-ring">
+        <svg viewBox="0 0 100 100">
+          <circle id="capture-ring-circle" cx="50" cy="50" r="46" stroke-dasharray="289" stroke-dashoffset="289"></circle>
+        </svg>
+      </div>
+      <div class="detect-status" id="detect-status">正在準備臉部偵測...</div>
+    `;
+    const video = document.getElementById('camera-video');
+    video.srcObject = cameraStream;
+
+    video.addEventListener('loadedmetadata', () => {
+      initFaceDetection(video);
+    }, { once: true });
+  } catch (err) {
+    box.innerHTML = `<div class="camera-error">無法開啟相機，請確認已允許瀏覽器使用相機權限後重新整理頁面</div>`;
+  }
+}
+
+// ---- 臉部偵測（自動拍照 + 即時輪廓線）----
+// 用 Google MediaPipe Face Landmarker，完全在瀏覽器端運算，免費、不呼叫任何伺服器
+let faceLandmarker = null;
+let detectionRafId = null;
+let stableFrameCount = 0;
+let autoCaptured = false;
+const STABLE_FRAMES_NEEDED = 36; // 約 1.2 秒（依畫面更新率浮動），持續偵測到臉才會自動拍照
+const CIRCLE_CIRCUMFERENCE = 289; // 2 * π * 46（圓環半徑46）
+
+let mediapipeReady = false;
+let cachedFaceLandmarkerClass = null;
+let cachedDrawingUtilsClass = null;
+
+async function initFaceDetection(video) {
+  const statusEl = document.getElementById('detect-status');
+
+  // 模型已經載入過的話（例如使用者按了「重新拍攝」），直接重用，不用再下載一次
+  if (mediapipeReady && faceLandmarker && cachedFaceLandmarkerClass && cachedDrawingUtilsClass) {
+    if (statusEl) statusEl.textContent = '請將臉部置於畫面中央';
+    startDetectionLoop(video, cachedFaceLandmarkerClass, cachedDrawingUtilsClass);
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = '正在載入臉部偵測模型...';
+
+  try {
+    const visionModule = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14');
+    const { FaceLandmarker, FilesetResolver, DrawingUtils } = visionModule;
+
+    const filesetResolver = await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+    );
+
+    // 先試 GPU 加速，很多電腦/瀏覽器組合會失敗，失敗的話自動退回 CPU 模式（穩定但稍慢）
+    try {
+      faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+          delegate: 'GPU'
+        },
+        runningMode: 'VIDEO',
+        numFaces: 1
+      });
+      console.log('臉部偵測模型已用 GPU 模式載入');
+    } catch (gpuErr) {
+      console.warn('GPU 模式載入失敗，改用 CPU 模式:', gpuErr);
+      if (statusEl) statusEl.textContent = '正在改用相容模式載入...';
+      faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+          delegate: 'CPU'
+        },
+        runningMode: 'VIDEO',
+        numFaces: 1
+      });
+      console.log('臉部偵測模型已用 CPU 模式載入');
+    }
+
+    cachedFaceLandmarkerClass = FaceLandmarker;
+    cachedDrawingUtilsClass = DrawingUtils;
+    mediapipeReady = true;
+    if (statusEl) statusEl.textContent = '請將臉部置於畫面中央';
+    startDetectionLoop(video, FaceLandmarker, DrawingUtils);
+  } catch (err) {
+    console.error('臉部偵測模型載入失敗（GPU、CPU 模式皆失敗）:', err);
+    // 兩種模式都失敗，明確告知使用者，並保留手動快門可以正常拍照
+    if (statusEl) statusEl.textContent = '自動偵測目前無法使用，請用下方快門手動拍照';
+  }
+}
+
+function startDetectionLoop(video, FaceLandmarkerClass, DrawingUtilsClass) {
+  const canvas = document.getElementById('face-overlay');
+  if (!canvas) return;
+
+  if (!video.videoWidth || !video.videoHeight) {
+    // 影片尺寸還沒準備好，稍等一下再重試，避免畫布被設成 0×0
+    setTimeout(() => startDetectionLoop(video, FaceLandmarkerClass, DrawingUtilsClass), 100);
+    return;
+  }
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const ctx = canvas.getContext('2d');
+  const drawingUtils = new DrawingUtilsClass(ctx);
+  let lastVideoTime = -1;
+
+  function frame() {
+    const currentVideo = document.getElementById('camera-video');
+    const currentCanvas = document.getElementById('face-overlay');
+    if (!currentVideo || !currentCanvas || autoCaptured) {
+      return; // 相機已關閉或已經自動拍照，停止這個迴圈
+    }
+
+    if (currentVideo.readyState >= 2 && currentVideo.currentTime !== lastVideoTime) {
+      lastVideoTime = currentVideo.currentTime;
+
+      let results;
+      try {
+        results = faceLandmarker.detectForVideo(currentVideo, performance.now());
+      } catch (detectErr) {
+        console.error('單次臉部偵測失敗，跳過這一幀:', detectErr);
+        detectionRafId = requestAnimationFrame(frame);
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const statusEl = document.getElementById('detect-status');
+
+      if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+        const landmarks = results.faceLandmarks[0];
+        drawingUtils.drawConnectors(
+          landmarks,
+          FaceLandmarkerClass.FACE_LANDMARKS_FACE_OVAL,
+          { color: '#8FBF8A', lineWidth: 2 }
+        );
+
+        stableFrameCount++;
+        const progress = Math.min(stableFrameCount / STABLE_FRAMES_NEEDED, 1);
+        updateCaptureRing(progress);
+        if (statusEl) statusEl.textContent = progress < 1 ? '偵測到臉部，保持不動...' : '';
+
+        if (stableFrameCount >= STABLE_FRAMES_NEEDED && !autoCaptured) {
+          autoCaptured = true;
+          takePhoto();
+          return;
+        }
+      } else {
+        stableFrameCount = 0;
+        updateCaptureRing(0);
+        if (statusEl) statusEl.textContent = '請將臉部置於畫面中央';
+      }
+    }
+
+    detectionRafId = requestAnimationFrame(frame);
+  }
+
+  detectionRafId = requestAnimationFrame(frame);
+}
+
+function updateCaptureRing(progress) {
+  const circle = document.getElementById('capture-ring-circle');
+  if (!circle) return;
+  circle.classList.toggle('active', progress > 0);
+  circle.setAttribute('stroke-dashoffset', CIRCLE_CIRCUMFERENCE * (1 - progress));
+}
+
+function resetFaceDetection() {
+  stableFrameCount = 0;
+  autoCaptured = false;
+  if (detectionRafId) {
+    cancelAnimationFrame(detectionRafId);
+    detectionRafId = null;
+  }
+}
+
+function stopCamera() {
+  resetFaceDetection();
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+}
+
+function takePhoto() {
+  const video = document.getElementById('camera-video');
+  if (!video) return;
+  const canvas = document.getElementById('camera-canvas');
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  // 因為預覽是鏡像顯示，拍下來也鏡像回來，跟使用者看到的畫面一致
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
+    handleFile(file);
+  }, 'image/jpeg', 0.92);
+}
+
+function resetToCamera() {
+  selectedFile = null;
+  resetFaceDetection();
+  document.getElementById('preview-wrap').classList.remove('show');
+  document.getElementById('camera-box').style.display = 'flex';
+  document.getElementById('analyze-btn').disabled = true;
+  openCamera(); // 重新拍攝一律重開相機，狀態最乾淨、不容易出錯
+}
+
+function handleFile(file) {
+  selectedFile = file;
+  stopCamera();
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('camera-box').style.display = 'none';
+    document.getElementById('preview-wrap').classList.add('show');
+    document.getElementById('preview-img').src = e.target.result;
+    document.getElementById('analyze-btn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyze() {
+  if (!selectedFile) return;
+
+  document.querySelector('.upload-card').style.display = 'none';
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('error-box').classList.remove('show');
+
+  const formData = new FormData();
+  formData.append('photo', selectedFile);
+
+  try {
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch('/api/facial-analysis', {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+    const data = await res.json();
+
+    document.getElementById('loading').classList.remove('show');
+
+    if (!res.ok) {
+      showError(data.error || '分析失敗，請稍後再試');
+      document.querySelector('.upload-card').style.display = 'block';
+      return;
+    }
+
+    renderResult(data);
+  } catch {
+    document.getElementById('loading').classList.remove('show');
+    showError('連線失敗，請確認伺服器是否正常運作');
+    document.querySelector('.upload-card').style.display = 'block';
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = msg;
+  box.classList.add('show');
+}
+
+function renderResult(data) {
+  const dishes = Array.isArray(data.recommended_dishes) ? data.recommended_dishes : [];
+
+  document.getElementById('result').innerHTML = `
+    <div class="result-section">
+      <div class="constitution-label">AI 判斷體質傾向</div>
+      <div class="constitution-badge">${data.constitution || '—'}</div>
+      <div class="reasoning">${data.reasoning || ''}</div>
+
+      <div class="feature-grid" style="margin-top:18px;">
+        <div class="feature-row">
+          <div class="flabel">臉部氣色</div>
+          <div class="fvalue">${data.face_features || '無明顯特徵描述'}</div>
+        </div>
+        <div class="feature-row">
+          <div class="flabel">眼周狀態</div>
+          <div class="fvalue">${data.eye_features || '無明顯特徵描述'}</div>
+        </div>
+        ${data.tongue_features ? `
+          <div class="feature-row">
+            <div class="flabel">舌象觀察</div>
+            <div class="fvalue">${data.tongue_features}</div>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+
+    ${dishes.map((dish, i) => `
+      <div class="result-section">
+        <div class="constitution-label">為您推薦</div>
+        <div class="dish-card">
+          <div class="dish-photo">
+            ${dish.image_url ? `<img src="${dish.image_url}" alt="${dish.name}">` : '尚無照片'}
+          </div>
+          <div class="dish-info">
+            <div class="dname">${dish.name}</div>
+            <div class="dprice">NT$ ${Math.round(dish.price)}</div>
+          </div>
+        </div>
+        <div class="rec-reason">${dish.reason || ''}</div>
+        <button class="add-cart-btn" onclick="addRecommendedToCart(${dish.id}, '${dish.name}', ${data.record_id || 'null'})">
+          將這道湯加入購物車
+        </button>
+      </div>
+    `).join('')}
+
+    <button class="retry-btn" onclick="location.reload()">重新上傳照片再測一次</button>
+  `;
+
+  document.getElementById('result').classList.add('show');
+}
+
+function addRecommendedToCart(dishId, dishName, recordId) {
+  localStorage.setItem('pendingCartItem', JSON.stringify({ dish_id: dishId, name: dishName, record_id: recordId }));
+  window.location.href = '/index.html';
+}
+
+// 初始化：訪客與會員都直接進入上傳畫面
+renderUploadUI();
+</script>
+
+</body>
+</html>

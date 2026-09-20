@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>個人資料 — 補湯菜單</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F0E5;
+    --paper-deep: #EAE2D0;
+    --ink: #2B2620;
+    --ink-soft: #6B6255;
+    --herb: #4F6353;
+    --herb-deep: #384A3C;
+    --seal: #A63D2F;
+    --border: #DDD2BC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(79,99,83,0.06) 0, transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(166,61,47,0.05) 0, transparent 40%);
+    font-family: 'Noto Sans TC', sans-serif;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px 30px 30px;
+  }
+
+  .back-link {
+    display: block;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    margin-bottom: 18px;
+  }
+  .back-link:hover { color: var(--herb-deep); }
+
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: var(--herb);
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 24px;
+    margin: 0 0 4px;
+    letter-spacing: 0.05em;
+  }
+  .sub {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-bottom: 24px;
+  }
+
+  .not-logged-in {
+    text-align: center;
+    padding: 40px 10px;
+    color: var(--ink-soft);
+  }
+  .not-logged-in a { color: var(--herb-deep); font-weight: 700; }
+
+  .section-title {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--herb-deep);
+    margin: 26px 0 14px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .section-title:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+
+  form { display: flex; flex-direction: column; gap: 14px; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  label {
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--herb-deep);
+    font-weight: 700;
+  }
+  input {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  input:focus {
+    outline: 2px solid var(--herb);
+    outline-offset: 1px;
+  }
+  input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .submit-btn {
+    margin-top: 4px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    padding: 10px 0;
+    border: none;
+    border-radius: 5px;
+    background: var(--herb);
+    color: #F5F0E5;
+    cursor: pointer;
+  }
+  .submit-btn:hover { background: var(--herb-deep); }
+  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .submit-btn.danger { background: var(--seal); }
+  .submit-btn.danger:hover { background: #8f3527; }
+
+  .msg {
+    font-size: 12.5px;
+    padding: 9px 12px;
+    border-radius: 5px;
+    display: none;
+    line-height: 1.5;
+  }
+  .msg.show { display: block; }
+  .msg.error {
+    background: rgba(166,61,47,0.08);
+    color: var(--seal);
+    border: 1px solid rgba(166,61,47,0.25);
+  }
+  .msg.success {
+    background: rgba(79,99,83,0.1);
+    color: var(--herb-deep);
+    border: 1px solid rgba(79,99,83,0.25);
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <a href="/index.html" class="back-link">← 返回菜單</a>
+  <h1>個人資料</h1>
+  <div class="sub" id="page-sub"></div>
+
+  <div id="content"></div>
+</div>
+
+<script>
+let currentToken = localStorage.getItem('token');
+
+function renderNotLoggedIn() {
+  document.getElementById('content').innerHTML = `
+    <div class="not-logged-in">
+      尚未登入，<a href="/login.html">前往會員登入</a>
+    </div>
+  `;
+}
+
+function renderForms(member) {
+  
+  document.getElementById('content').innerHTML = `
+    <div class="section-title">基本資料</div>
+    <div class="msg" id="profile-msg"></div>
+    <form id="profile-form">
+      <div class="field">
+        <label>姓名</label>
+        <input type="text" id="profile-name" placeholder="您的稱呼" value="${member.name ? escapeAttr(member.name) : ''}">
+      </div>
+      <div class="field">
+        <label>手機號碼</label>
+        <input type="tel" id="profile-phone" placeholder="0912345678" value="${escapeAttr(member.phone)}" required>
+      </div>
+      <button type="submit" class="submit-btn" id="profile-btn">儲存變更</button>
+    </form>
+
+    <div class="section-title">修改密碼</div>
+    <div class="msg" id="password-msg"></div>
+    <form id="password-form">
+      <div class="field">
+        <label>目前密碼</label>
+        <input type="password" id="current-password" placeholder="請輸入目前密碼" required>
+      </div>
+      <div class="field">
+        <label>新密碼（至少 6 個字元）</label>
+        <input type="password" id="new-password" placeholder="請輸入新密碼" required minlength="6">
+      </div>
+      <button type="submit" class="submit-btn danger" id="password-btn">更新密碼</button>
+    </form>
+  `;
+
+  document.getElementById('profile-form').addEventListener('submit', handleProfileSubmit);
+  document.getElementById('password-form').addEventListener('submit', handlePasswordSubmit);
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/"/g, '&quot;');
+}
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = `msg show ${type}`;
+}
+function hideMsg(id) {
+  document.getElementById(id).className = 'msg';
+}
+
+async function handleProfileSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('profile-btn');
+  btn.disabled = true;
+  hideMsg('profile-msg');
+
+  const name = document.getElementById('profile-name').value;
+  const phone = document.getElementById('profile-phone').value;
+
+  try {
+    const res = await fetch('/api/members/me', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      },
+      body: JSON.stringify({ name, phone })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg('profile-msg', data.error || '更新失敗', 'error');
+      return;
+    }
+
+    // 電話號碼改了，token跟著換新，順便更新localStorage裡存的會員資料
+    currentToken = data.token;
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('member', JSON.stringify(data.member));
+
+    showMsg('profile-msg', '個人資料已更新', 'success');
+  } catch {
+    showMsg('profile-msg', '連線失敗，請確認伺服器是否正常運作', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handlePasswordSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('password-btn');
+  btn.disabled = true;
+  hideMsg('password-msg');
+
+  const current_password = document.getElementById('current-password').value;
+  const new_password = document.getElementById('new-password').value;
+
+  try {
+    const res = await fetch('/api/members/me/password', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      },
+      body: JSON.stringify({ current_password, new_password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg('password-msg', data.error || '更新失敗', 'error');
+      return;
+    }
+
+    showMsg('password-msg', '密碼已更新，下次登入請使用新密碼', 'success');
+    document.getElementById('password-form').reset();
+  } catch {
+    showMsg('password-msg', '連線失敗，請確認伺服器是否正常運作', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function init() {
+  if (!currentToken) {
+    renderNotLoggedIn();
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/members/me', {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('member');
+      renderNotLoggedIn();
+      return;
+    }
+
+    const member = await res.json();
+    renderForms(member);
+  } catch {
+    document.getElementById('content').innerHTML = `<div class="not-logged-in">讀取失敗，請確認伺服器是否正常運作</div>`;
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>

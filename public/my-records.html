@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的紀錄 — 補湯菜單</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F0E5;
+    --paper-deep: #EAE2D0;
+    --ink: #2B2620;
+    --ink-soft: #6B6255;
+    --herb: #4F6353;
+    --herb-deep: #384A3C;
+    --seal: #A63D2F;
+    --border: #DDD2BC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(79,99,83,0.06) 0, transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(166,61,47,0.05) 0, transparent 40%);
+    font-family: 'Noto Sans TC', sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 40px 24px 20px;
+    text-align: center;
+    position: relative;
+  }
+  .back-link {
+    position: absolute;
+    top: 24px; left: 24px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+  }
+  .back-link:hover { color: var(--herb-deep); }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: var(--herb);
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 28px;
+    margin: 0;
+    letter-spacing: 0.05em;
+  }
+
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px 24px 8px;
+  }
+  .tab {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 14.5px;
+    font-weight: 700;
+    padding: 9px 24px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--ink-soft);
+    cursor: pointer;
+    letter-spacing: 0.03em;
+  }
+  .tab:hover { border-color: var(--herb); color: var(--herb-deep); }
+  .tab.active {
+    background: var(--herb);
+    border-color: var(--herb);
+    color: #F5F0E5;
+  }
+
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 12px 24px 80px;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .not-logged-in {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--ink-soft);
+  }
+  .not-logged-in a { color: var(--herb-deep); font-weight: 700; }
+
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-soft);
+  }
+
+  /* ---- 訂單卡片 ---- */
+  .order-card {
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 22px;
+    margin-bottom: 16px;
+  }
+  .order-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .order-id {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .status-pill {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+  .status-待處理 { background: rgba(176,141,87,0.18); color: #7A5A28; }
+  .status-製作中 { background: rgba(79,99,83,0.15); color: var(--herb-deep); }
+  .status-已完成 { background: rgba(79,99,83,0.25); color: var(--herb-deep); }
+  .status-已取消 { background: rgba(166,61,47,0.12); color: var(--seal); }
+
+  .order-date {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .ai-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--herb-deep);
+    background: rgba(79,99,83,0.1);
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 12px;
+  }
+
+  .order-item-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13.5px;
+    padding: 5px 0;
+  }
+  .order-item-row .qty { color: var(--ink-soft); }
+
+  .order-total {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 15px;
+    border-top: 1px solid var(--border);
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  /* ---- AI分析紀錄卡片 ---- */
+  .analysis-card {
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 22px;
+    margin-bottom: 16px;
+  }
+  .analysis-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .analysis-date {
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .constitution-tag {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--seal);
+  }
+  .ordered-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--herb-deep);
+    background: rgba(79,99,83,0.1);
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+
+  .rec-dish-row {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .rec-dish-row .label {
+    color: var(--ink-soft);
+    font-size: 11.5px;
+  }
+  .rec-dish-row .name {
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .more-btn {
+    display: block;
+    width: 100%;
+    margin-top: 14px;
+    padding: 9px 0;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--herb-deep);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+  .more-btn:hover { border-color: var(--herb); background: rgba(79,99,83,0.06); }
+
+  /* ---- 詳細內容彈窗 ---- */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(43,38,32,0.45);
+    z-index: 100;
+    padding: 24px;
+    overflow-y: auto;
+  }
+  .modal-overlay.active { display: block; }
+  .modal-box {
+    background: var(--paper);
+    max-width: 640px;
+    margin: 20px auto 60px;
+    border-radius: 8px;
+    padding: 28px 26px 32px;
+    position: relative;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  }
+  .modal-close {
+    position: absolute;
+    top: 18px; right: 20px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--ink); }
+  .modal-date {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .modal-eyebrow {
+    font-size: 11.5px;
+    letter-spacing: 0.15em;
+    color: var(--herb);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .modal-constitution {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 24px;
+    color: var(--seal);
+    margin: 0 0 14px;
+  }
+  .modal-reasoning {
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: var(--ink);
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+  }
+  .modal-section-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    color: var(--herb-deep);
+    margin: 0 0 4px;
+  }
+  .modal-feature-block { margin-bottom: 14px; }
+  .modal-feature-text {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .modal-dishes-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+    margin: 22px 0 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .modal-dish-card {
+    display: flex;
+    gap: 14px;
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .modal-dish-img {
+    width: 72px;
+    height: 72px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--paper-deep);
+  }
+  .modal-dish-name {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .modal-dish-price {
+    font-size: 12.5px;
+    color: var(--seal);
+    font-weight: 700;
+    margin: 2px 0 6px;
+  }
+  .modal-dish-reason {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/index.html" class="back-link">← 返回菜單</a>
+  
+  
+</header>
+
+<div class="tabs" id="tabs" style="display:none;">
+  <button class="tab active" data-tab="orders">點餐紀錄</button>
+  <button class="tab" data-tab="analysis">AI 分析紀錄</button>
+</div>
+
+<main id="main">
+  <div class="not-logged-in">
+    尚未登入，<a href="/login.html">前往會員登入</a>才能查看紀錄
+  </div>
+</main>
+
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) closeDetail()">
+  <div class="modal-box" id="modalBox"></div>
+</div>
+
+<script>
+let orders = [];
+let records = [];
+
+async function init() {
+  const token = localStorage.getItem('token');
+  if (!token) return; // 保留上方預設的「尚未登入」提示
+
+  document.getElementById('tabs').style.display = 'flex';
+  document.getElementById('main').innerHTML = `
+    <div class="panel active" id="panel-orders"></div>
+    <div class="panel" id="panel-analysis"></div>
+  `;
+
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+    });
+  });
+
+  try {
+    const [orderRes, analysisRes] = await Promise.all([
+      fetch('/api/orders/mine', { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch('/api/facial-analysis/mine', { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+
+    if (orderRes.status === 401 || analysisRes.status === 401) {
+      document.getElementById('tabs').style.display = 'none';
+      document.getElementById('main').innerHTML = `
+        <div class="not-logged-in">登入已過期，請<a href="/login.html">重新登入</a></div>
+      `;
+      return;
+    }
+
+    orders = await orderRes.json();
+    records = await analysisRes.json();
+
+    renderOrders();
+    renderAnalysis();
+  } catch {
+    document.getElementById('main').innerHTML = `<div class="empty">讀取失敗，請確認伺服器是否正常運作</div>`;
+  }
+}
+
+function renderOrders() {
+  const panel = document.getElementById('panel-orders');
+
+  if (orders.length === 0) {
+    panel.innerHTML = `<div class="empty">目前還沒有任何點餐紀錄</div>`;
+    return;
+  }
+
+  panel.innerHTML = orders.map(o => `
+    <div class="order-card">
+      <div class="order-top">
+        <span class="order-id">訂單 #${o.id}</span>
+        <span class="status-pill status-${o.status}">${o.status}</span>
+      </div>
+      <div class="order-date">${formatDate(o.created_at)}</div>
+      ${o.facial_record_id ? `<div class="ai-badge">✨ 來自 AI 湯品推薦</div>` : ''}
+      ${o.items.map(item => `
+        <div class="order-item-row">
+          <span>${item.dish_name} <span class="qty">× ${item.quantity}</span></span>
+          <span>NT$ ${Math.round(item.price * item.quantity)}</span>
+        </div>
+      `).join('')}
+      <div class="order-total">
+        <span>總計</span>
+        <span>NT$ ${Math.round(o.total_amount)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderAnalysis() {
+  const panel = document.getElementById('panel-analysis');
+
+  if (records.length === 0) {
+    panel.innerHTML = `<div class="empty">目前還沒有任何 AI 分析紀錄</div>`;
+    return;
+  }
+
+  // 判斷每次分析後來是否真的變成了一筆訂單
+  const orderedRecordIds = new Set(
+    orders.filter(o => o.facial_record_id).map(o => o.facial_record_id)
+  );
+
+  panel.innerHTML = records.map((r, idx) => {
+    // 新版 API 直接回傳 constitution 欄位；相容舊版把體質存在 ai_result 字串裡的情況
+    const constitution = r.constitution || safeParse(r.ai_result)?.constitution || r.ai_result || '—';
+    const wasOrdered = orderedRecordIds.has(r.id);
+    // 有完整推薦清單就把全部湯品名稱列出來；舊紀錄沒有完整清單時，退回只顯示單一推薦湯品
+    const dishNames = Array.isArray(r.recommended_dishes) && r.recommended_dishes.length
+      ? r.recommended_dishes.map(d => d.name).join('、')
+      : (r.recommended_dish_name || '');
+
+    return `
+      <div class="analysis-card">
+        <div class="analysis-top">
+          <div>
+            <div class="analysis-date">${formatDate(r.analyzed_at)}</div>
+            <div class="constitution-tag">${constitution}</div>
+          </div>
+          ${wasOrdered ? `<span class="ordered-badge">✓ 已點餐</span>` : ''}
+        </div>
+        ${dishNames ? `
+          <div class="rec-dish-row">
+            <span class="label">當時推薦：</span>
+            <span class="name">${dishNames}</span>
+          </div>
+        ` : ''}
+        <button class="more-btn" onclick="openDetail(${idx})">查看更多</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function openDetail(idx) {
+  const r = records[idx];
+  const face = safeParse(r.face_features)?.description || '';
+  const eye = safeParse(r.eye_features)?.description || '';
+  const tongue = safeParse(r.tongue_features)?.description || '';
+  const constitution = r.constitution || safeParse(r.ai_result)?.constitution || r.ai_result || '—';
+  const reasoning = r.reasoning || safeParse(r.ai_result)?.reasoning || '';
+  const dishes = Array.isArray(r.recommended_dishes) ? r.recommended_dishes : [];
+
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    <button class="modal-close" onclick="closeDetail()">&times;</button>
+    <div class="modal-date">${formatDate(r.analyzed_at)}</div>
+    <div class="modal-eyebrow">AI 判斷體質傾向</div>
+    <div class="modal-constitution">${constitution}</div>
+    ${reasoning ? `<div class="modal-reasoning">${reasoning}</div>` : ''}
+
+    ${face ? `
+      <div class="modal-feature-block">
+        <div class="modal-section-title">臉部氣色</div>
+        <div class="modal-feature-text">${face}</div>
+      </div>` : ''}
+    ${eye ? `
+      <div class="modal-feature-block">
+        <div class="modal-section-title">眼周狀態</div>
+        <div class="modal-feature-text">${eye}</div>
+      </div>` : ''}
+    ${tongue ? `
+      <div class="modal-feature-block">
+        <div class="modal-section-title">舌象觀察</div>
+        <div class="modal-feature-text">${tongue}</div>
+      </div>` : ''}
+
+    ${dishes.length ? `
+      <div class="modal-dishes-title">為您推薦</div>
+      ${dishes.map(d => `
+        <div class="modal-dish-card">
+          ${d.image_url ? `<img class="modal-dish-img" src="${d.image_url}" alt="${d.name}">` : `<div class="modal-dish-img"></div>`}
+          <div>
+            <div class="modal-dish-name">${d.name}</div>
+            <div class="modal-dish-price">NT$ ${Math.round(d.price)}</div>
+            ${d.reason ? `<div class="modal-dish-reason">${d.reason}</div>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    ` : (r.recommended_dish_name ? `
+      <div class="modal-dishes-title">為您推薦</div>
+      <div class="modal-dish-card"><div><div class="modal-dish-name">${r.recommended_dish_name}</div></div></div>
+    ` : '')}
+  `;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeDetail() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+function safeParse(val) {
+  if (val == null) return null;
+  // 有些欄位在資料庫是 JSON 型別，驅動程式會自動解析成物件；
+  // 有些欄位是純文字，存的是 JSON 字串，要手動 JSON.parse。兩種情況都要處理。
+  if (typeof val === 'object') return val;
+  try { return JSON.parse(val); } catch { return null; }
+}
+
+function formatDate(str) {
+  const d = new Date(str);
+  return d.toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+init();
+</script>
+
+</body>
+</html>

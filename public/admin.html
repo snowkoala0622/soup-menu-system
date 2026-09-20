@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>後台管理 — 補湯菜單</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F0E5;
+    --paper-deep: #EAE2D0;
+    --ink: #2B2620;
+    --ink-soft: #6B6255;
+    --herb: #4F6353;
+    --herb-deep: #384A3C;
+    --seal: #A63D2F;
+    --border: #DDD2BC;
+    --ok: #4F6353;
+    --off: #A6A196;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: 'Noto Sans TC', sans-serif;
+    color: var(--ink);
+  }
+  header {
+    padding: 28px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    background: #FFFDF8;
+  }
+  h1 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 22px;
+    margin: 0;
+    letter-spacing: 0.05em;
+  }
+  .count { font-size: 13px; color: var(--ink-soft); }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 80px; }
+
+  .toast {
+    position: fixed;
+    top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px);
+    background: var(--ink);
+    color: #F5F0E5;
+    padding: 10px 22px;
+    border-radius: 4px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.25s ease;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .row {
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 18px;
+  }
+  .row.off { opacity: 0.55; } /* 目前未使用，保留供未來需要下架而非刪除時參考 */
+
+  .thumb-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .thumb {
+    width: 96px; height: 96px;
+    border-radius: 4px;
+    background: var(--paper-deep);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    border: 1px solid var(--border);
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+  .upload-btn {
+    font-size: 11.5px;
+    color: var(--herb-deep);
+    background: none;
+    border: 1px solid var(--herb);
+    border-radius: 999px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+  .upload-btn:hover { background: rgba(79,99,83,0.08); }
+
+  .fields {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 10px 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.full { grid-column: 1 / -1; }
+  label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--herb-deep);
+    font-weight: 700;
+  }
+  input, textarea {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13.5px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  textarea { resize: vertical; min-height: 40px; }
+  input:focus, textarea:focus {
+    outline: 2px solid var(--herb);
+    outline-offset: 1px;
+  }
+
+  .row-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+  }
+
+  .delete-btn {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 12.5px;
+    padding: 7px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .delete-btn:hover {
+    border-color: var(--seal);
+    color: var(--seal);
+    background: rgba(166,61,47,0.06);
+  }
+
+  .save-btn {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 7px 18px;
+    border-radius: 4px;
+    border: none;
+    background: var(--seal);
+    color: #fff;
+    cursor: pointer;
+  }
+  .save-btn:hover { background: #8f3527; }
+
+  .file-input { display: none; }
+
+  .add-panel {
+    background: #FFFDF8;
+    border: 1px dashed var(--herb);
+    border-radius: 6px;
+    padding: 20px 22px;
+    margin-bottom: 24px;
+  }
+  .add-panel h2 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 16px;
+    margin: 0 0 14px;
+    color: var(--herb-deep);
+  }
+  .add-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px 14px;
+  }
+  .add-grid .full { grid-column: 1 / -1; }
+  select {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13.5px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .add-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 6px;
+  }
+  .add-btn {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 20px;
+    border-radius: 4px;
+    border: none;
+    background: var(--herb);
+    color: #fff;
+    cursor: pointer;
+  }
+  .add-btn:hover { background: var(--herb-deep); }
+
+  @media (max-width: 640px) {
+    .add-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 640px) {
+    .row { grid-template-columns: 1fr; }
+    .fields { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>後台管理</h1>
+  <span class="count" id="count"></span>
+</header>
+
+<main>
+  <div class="add-panel">
+    <h2>＋ 新增湯品</h2>
+    <div class="add-grid">
+      <div class="field">
+        <label>分類</label>
+        <select id="new-category"></select>
+      </div>
+      <div class="field">
+        <label>名稱</label>
+        <input type="text" id="new-name" placeholder="例如：四物排骨湯">
+      </div>
+      <div class="field">
+        <label>價格 (NT$)</label>
+        <input type="number" id="new-price" placeholder="120">
+      </div>
+      <div class="field full">
+        <label>功能說明</label>
+        <textarea id="new-desc" placeholder="這道湯的功效..."></textarea>
+      </div>
+      <div class="field full">
+        <label>飲用禁忌（用「、」分隔多項）</label>
+        <textarea id="new-contra" placeholder="孕婦、生理期、腎功能不全..."></textarea>
+      </div>
+      <div class="field full">
+        <label>標籤（用「、」分隔多個）</label>
+        <input type="text" id="new-tags" placeholder="溫補氣血、補血調經">
+      </div>
+      <div class="add-actions">
+        <button class="add-btn" onclick="addDish()">新增這道湯品</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="list"></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let dishes = [];
+let categories = [];
+
+async function load() {
+  const [dishRes, catRes] = await Promise.all([
+    fetch('/api/dishes?all=1'),
+    fetch('/api/categories')
+  ]);
+  dishes = await dishRes.json();
+  categories = await catRes.json();
+  renderCategoryOptions();
+  render();
+}
+
+function renderCategoryOptions() {
+  const sel = document.getElementById('new-category');
+  sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+async function addDish() {
+  const payload = {
+    category_id: document.getElementById('new-category').value,
+    name: document.getElementById('new-name').value.trim(),
+    price: document.getElementById('new-price').value,
+    description: document.getElementById('new-desc').value.trim(),
+    contraindication: document.getElementById('new-contra').value.trim(),
+    tags: document.getElementById('new-tags').value.trim()
+  };
+
+  if (!payload.name || !payload.price) {
+    showToast('名稱與價格為必填');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/dishes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error();
+
+    ['new-name', 'new-price', 'new-desc', 'new-contra', 'new-tags'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+
+    showToast('新增成功，可以繼續上傳照片');
+    await load();
+  } catch {
+    showToast('新增失敗，請確認欄位內容');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function render() {
+  document.getElementById('count').textContent = `共 ${dishes.length} 道品項`;
+  const list = document.getElementById('list');
+  list.innerHTML = dishes.map(d => `
+    <div class="row" data-id="${d.id}">
+      <div class="thumb-wrap">
+        <div class="thumb" id="thumb-${d.id}">
+          ${d.image_url ? `<img src="${d.image_url}" alt="${d.name}">` : '尚無照片'}
+        </div>
+        <button class="upload-btn" onclick="document.getElementById('file-${d.id}').click()">上傳照片</button>
+        <input type="file" class="file-input" id="file-${d.id}" accept=".jpg,.jpeg,.png,.webp" onchange="uploadImage(${d.id}, this)">
+      </div>
+      <div class="fields">
+        <div class="field">
+          <label>名稱</label>
+          <input type="text" id="name-${d.id}" value="${escapeAttr(d.name)}">
+        </div>
+        <div class="field">
+          <label>價格 (NT$)</label>
+          <input type="number" id="price-${d.id}" value="${d.price}">
+        </div>
+        <div class="field">
+          <label>標籤</label>
+          <input type="text" value="${escapeAttr(d.tags || '')}" disabled title="標籤需在資料庫調整">
+        </div>
+        <div class="field full">
+          <label>功能說明</label>
+          <textarea id="desc-${d.id}">${d.description || ''}</textarea>
+        </div>
+        <div class="field full">
+          <label>飲用禁忌</label>
+          <textarea id="contra-${d.id}">${d.contraindication || ''}</textarea>
+        </div>
+        <div class="row-actions">
+          <button class="delete-btn" onclick="deleteDish(${d.id}, '${escapeAttr(d.name)}')">刪除這道湯品</button>
+          <button class="save-btn" onclick="saveDish(${d.id})">儲存變更</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/"/g, '&quot;');
+}
+
+async function deleteDish(id, name) {
+  const confirmed = confirm(`確定要刪除「${name}」嗎？\n這個動作無法復原，會連同資料庫紀錄一起永久刪除。`);
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`/api/dishes/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error();
+    showToast('已刪除');
+    await load();
+  } catch {
+    showToast('刪除失敗，請確認後端伺服器是否正常');
+  }
+}
+
+async function saveDish(id) {
+  const payload = {
+    name: document.getElementById(`name-${id}`).value,
+    price: document.getElementById(`price-${id}`).value,
+    description: document.getElementById(`desc-${id}`).value,
+    contraindication: document.getElementById(`contra-${id}`).value,
+    is_available: 1
+  };
+
+  try {
+    const res = await fetch(`/api/dishes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error();
+    showToast('已儲存變更');
+    await load();
+  } catch {
+    showToast('儲存失敗，請確認後端伺服器是否正常');
+  }
+}
+
+async function uploadImage(id, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch(`/api/dishes/${id}/image`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    document.getElementById(`thumb-${id}`).innerHTML = `<img src="${data.image_url}" alt="">`;
+    showToast('照片上傳成功');
+    const d = dishes.find(x => x.id === id);
+    if (d) d.image_url = data.image_url;
+  } catch {
+    showToast('上傳失敗，請確認圖片格式與大小');
+  }
+}
+
+load();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>會員登入 — 補湯菜單</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F0E5;
+    --paper-deep: #EAE2D0;
+    --ink: #2B2620;
+    --ink-soft: #6B6255;
+    --herb: #4F6353;
+    --herb-deep: #384A3C;
+    --seal: #A63D2F;
+    --border: #DDD2BC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(79,99,83,0.06) 0, transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(166,61,47,0.05) 0, transparent 40%);
+    font-family: 'Noto Sans TC', sans-serif;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 380px;
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 36px 32px 32px;
+  }
+
+  .back-link {
+    display: block;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    margin-bottom: 18px;
+  }
+  .back-link:hover { color: var(--herb-deep); }
+
+  .eyebrow {
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: var(--herb);
+    font-weight: 500;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 26px;
+    text-align: center;
+    margin: 0 0 6px;
+    letter-spacing: 0.05em;
+  }
+
+  .sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 26px;
+  }
+
+  .tabs {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+    margin-bottom: 26px;
+  }
+  .tab-btn {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 8px 0;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .tab-btn.active {
+    background: var(--herb);
+    color: #F5F0E5;
+  }
+
+  form { display: none; flex-direction: column; gap: 14px; }
+  form.active { display: flex; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  label {
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--herb-deep);
+    font-weight: 700;
+  }
+  input {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  input:focus {
+    outline: 2px solid var(--herb);
+    outline-offset: 1px;
+  }
+
+  .submit-btn {
+    margin-top: 8px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 14.5px;
+    font-weight: 700;
+    padding: 11px 0;
+    border: none;
+    border-radius: 5px;
+    background: var(--seal);
+    color: #fff;
+    cursor: pointer;
+  }
+  .submit-btn:hover { background: #8f3527; }
+  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .msg {
+    font-size: 12.5px;
+    padding: 9px 12px;
+    border-radius: 5px;
+    display: none;
+    line-height: 1.5;
+  }
+  .msg.show { display: block; }
+  .msg.error {
+    background: rgba(166,61,47,0.08);
+    color: var(--seal);
+    border: 1px solid rgba(166,61,47,0.25);
+  }
+  .msg.success {
+    background: rgba(79,99,83,0.1);
+    color: var(--herb-deep);
+    border: 1px solid rgba(79,99,83,0.25);
+  }
+
+  .logged-in {
+    display: none;
+    text-align: center;
+  }
+  .logged-in.show { display: block; }
+  .logged-in .name {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin: 6px 0 4px;
+  }
+  .logged-in .phone {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 24px;
+  }
+  .logout-btn {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13px;
+    padding: 9px 20px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .logout-btn:hover { border-color: var(--seal); color: var(--seal); }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <a href="/index.html" class="back-link">← 返回菜單</a>
+  
+  <h1>會員專區</h1>
+  <div class="sub" id="subtitle">登入後即可查看點餐紀錄</div>
+
+  <div id="auth-section">
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">登入</button>
+      <button class="tab-btn" id="tab-register" onclick="switchTab('register')">註冊</button>
+    </div>
+
+    <div class="msg" id="msg"></div>
+
+    <form id="login-form" class="active" onsubmit="handleLogin(event)">
+      <div class="field">
+        <label>手機號碼</label>
+        <input type="tel" id="login-phone" placeholder="0912345678" required>
+      </div>
+      <div class="field">
+        <label>密碼</label>
+        <input type="password" id="login-password" placeholder="請輸入密碼" required>
+      </div>
+      <button type="submit" class="submit-btn" id="login-btn">登入</button>
+    </form>
+
+    <form id="register-form" onsubmit="handleRegister(event)">
+      <div class="field">
+        <label>姓名</label>
+        <input type="text" id="register-name" placeholder="您的稱呼">
+      </div>
+      <div class="field">
+        <label>手機號碼</label>
+        <input type="tel" id="register-phone" placeholder="0912345678" required>
+      </div>
+      <div class="field">
+        <label>密碼（至少 6 個字元）</label>
+        <input type="password" id="register-password" placeholder="請設定密碼" required minlength="6">
+      </div>
+      <button type="submit" class="submit-btn" id="register-btn">註冊</button>
+    </form>
+  </div>
+
+  <div class="logged-in" id="logged-in-section">
+    <div class="name" id="logged-name"></div>
+    <div class="phone" id="logged-phone"></div>
+    <a href="/my-records.html" class="submit-btn" style="display:block; text-decoration:none; text-align:center; margin-bottom:10px;">查看訂單紀錄</a>
+    <a href="/profile.html" class="submit-btn" style="display:block; text-decoration:none; text-align:center; margin-bottom:10px; background:none; border:1px solid var(--border); color:var(--ink-soft);">個人資料設定</a>
+    <button class="logout-btn" onclick="handleLogout()">登出</button>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('login-form').classList.toggle('active', tab === 'login');
+  document.getElementById('register-form').classList.toggle('active', tab === 'register');
+  hideMsg();
+}
+
+function showMsg(text, type) {
+  const msg = document.getElementById('msg');
+  msg.textContent = text;
+  msg.className = `msg show ${type}`;
+}
+function hideMsg() {
+  document.getElementById('msg').className = 'msg';
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  hideMsg();
+
+  const phone = document.getElementById('login-phone').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  try {
+    const res = await fetch('/api/members/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg(data.error || '登入失敗', 'error');
+      return;
+    }
+
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('member', JSON.stringify(data.member));
+    renderLoggedIn(data.member);
+  } catch {
+    showMsg('連線失敗，請確認伺服器是否正常運作', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const btn = document.getElementById('register-btn');
+  btn.disabled = true;
+  hideMsg();
+
+  const name = document.getElementById('register-name').value.trim();
+  const phone = document.getElementById('register-phone').value.trim();
+  const password = document.getElementById('register-password').value;
+
+  try {
+    const res = await fetch('/api/members/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg(data.error || '註冊失敗', 'error');
+      return;
+    }
+
+    showMsg('註冊成功，請切換到登入頁面登入', 'success');
+    document.getElementById('register-form').reset();
+    setTimeout(() => switchTab('login'), 1200);
+  } catch {
+    showMsg('連線失敗，請確認伺服器是否正常運作', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function handleLogout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('member');
+  document.getElementById('auth-section').style.display = 'block';
+  document.getElementById('logged-in-section').classList.remove('show');
+  document.getElementById('subtitle').textContent = '登入後即可查看點餐紀錄';
+}
+
+function renderLoggedIn(member) {
+  document.getElementById('auth-section').style.display = 'none';
+  document.getElementById('logged-in-section').classList.add('show');
+  document.getElementById('logged-name').textContent = member.name || '會員';
+  document.getElementById('logged-phone').textContent = member.phone;
+  document.getElementById('subtitle').textContent = '歡迎回來';
+}
+
+// 頁面載入時，檢查是否已經登入過
+(function init() {
+  const token = localStorage.getItem('token');
+  const memberStr = localStorage.getItem('member');
+  if (token && memberStr) {
+    renderLoggedIn(JSON.parse(memberStr));
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的訂單 — 補湯菜單</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F0E5;
+    --paper-deep: #EAE2D0;
+    --ink: #2B2620;
+    --ink-soft: #6B6255;
+    --herb: #4F6353;
+    --herb-deep: #384A3C;
+    --seal: #A63D2F;
+    --border: #DDD2BC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: 'Noto Sans TC', sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 40px 24px 24px;
+    text-align: center;
+    position: relative;
+  }
+  .back-link {
+    position: absolute;
+    top: 24px; left: 24px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+  }
+  .back-link:hover { color: var(--herb-deep); }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: var(--herb);
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 30px;
+    margin: 0;
+    letter-spacing: 0.05em;
+  }
+
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 12px 24px 80px;
+  }
+
+  .not-logged-in {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--ink-soft);
+  }
+  .not-logged-in a { color: var(--herb-deep); font-weight: 700; }
+
+  .order-card {
+    background: #FFFDF8;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 22px;
+    margin-bottom: 16px;
+  }
+  .order-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .order-id {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .status-pill {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+  .status-待處理 { background: rgba(176,141,87,0.18); color: #7A5A28; }
+  .status-製作中 { background: rgba(79,99,83,0.15); color: var(--herb-deep); }
+  .status-已完成 { background: rgba(79,99,83,0.25); color: var(--herb-deep); }
+  .status-已取消 { background: rgba(166,61,47,0.12); color: var(--seal); }
+
+  .order-date {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+  }
+
+  .order-item-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13.5px;
+    padding: 5px 0;
+  }
+  .order-item-row .qty { color: var(--ink-soft); }
+
+  .order-total {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 15px;
+    border-top: 1px solid var(--border);
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/index.html" class="back-link">← 返回菜單</a>
+  
+  <h1>我的訂單</h1>
+</header>
+
+<main id="main"></main>
+
+<script>
+async function load() {
+  const token = localStorage.getItem('token');
+  const main = document.getElementById('main');
+
+  if (!token) {
+    main.innerHTML = `
+      <div class="not-logged-in">
+        尚未登入，<a href="/login.html">前往會員登入</a>才能查看訂單紀錄
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/orders/mine', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (res.status === 401) {
+      main.innerHTML = `
+        <div class="not-logged-in">
+          登入已過期，請<a href="/login.html">重新登入</a>
+        </div>
+      `;
+      return;
+    }
+
+    const orders = await res.json();
+
+    if (orders.length === 0) {
+      main.innerHTML = `<div class="empty">目前還沒有任何訂單紀錄</div>`;
+      return;
+    }
+
+    main.innerHTML = orders.map(o => `
+      <div class="order-card">
+        <div class="order-top">
+          <span class="order-id">訂單 #${o.id}</span>
+          <span class="status-pill status-${o.status}">${o.status}</span>
+        </div>
+        <div class="order-date">${formatDate(o.created_at)}</div>
+        ${o.items.map(item => `
+          <div class="order-item-row">
+            <span>${item.dish_name} <span class="qty">× ${item.quantity}</span></span>
+            <span>NT$ ${Math.round(item.price * item.quantity)}</span>
+          </div>
+        `).join('')}
+        <div class="order-total">
+          <span>總計</span>
+          <span>NT$ ${Math.round(o.total_amount)}</span>
+        </div>
+      </div>
+    `).join('');
+  } catch {
+    main.innerHTML = `<div class="empty">讀取失敗，請確認伺服器是否正常運作</div>`;
+  }
+}
+
+function formatDate(str) {
+  const d = new Date(str);
+  return d.toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+load();
+</script>
+
+</body>
+</html>
