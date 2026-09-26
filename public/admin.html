@@ -356,8 +356,8 @@ function render() {
           <input type="number" id="price-${d.id}" value="${d.price}">
         </div>
         <div class="field">
-          <label>標籤</label>
-          <input type="text" value="${escapeAttr(d.tags || '')}" disabled title="標籤需在資料庫調整">
+          <label>標籤（用「、」分隔多個）</label>
+          <input type="text" id="tags-${d.id}" value="${escapeAttr(d.tags || '')}" placeholder="溫補氣血、補血調經">
         </div>
         <div class="field full">
           <label>功能說明</label>
@@ -368,7 +368,7 @@ function render() {
           <textarea id="contra-${d.id}">${d.contraindication || ''}</textarea>
         </div>
         <div class="row-actions">
-          <button class="delete-btn" onclick="deleteDish(${d.id}, '${escapeAttr(d.name)}')">刪除這道湯品</button>
+          <button class="delete-btn" onclick="deleteDish(${d.id}, '${escapeAttr(d.name)}')">刪除這道菜色</button>
           <button class="save-btn" onclick="saveDish(${d.id})">儲存變更</button>
         </div>
       </div>
@@ -400,6 +400,7 @@ async function saveDish(id) {
     price: document.getElementById(`price-${id}`).value,
     description: document.getElementById(`desc-${id}`).value,
     contraindication: document.getElementById(`contra-${id}`).value,
+    tags: document.getElementById(`tags-${id}`).value,
     is_available: 1
   };
 

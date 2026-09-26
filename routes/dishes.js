@@ -55,6 +55,30 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 把「用、或,分隔的標籤文字」同步成該道菜色的 dish_tags 關聯：
+// 先清掉舊的關聯，缺少的標籤自動建立，再依序重新建立關聯。
+// 新增與編輯共用這段邏輯，避免兩邊各寫一次、之後改壞其中一邊。
+async function syncDishTags(dishId, tagsText) {
+  const tagNames = (tagsText || '')
+    .split(/[、,]/)
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  await pool.query('DELETE FROM dish_tags WHERE dish_id = ?', [dishId]);
+
+  for (const tagName of tagNames) {
+    await pool.query(
+      'INSERT IGNORE INTO tags (name) VALUES (?)',
+      [tagName]
+    );
+    await pool.query(
+      `INSERT INTO dish_tags (dish_id, tag_id)
+       SELECT ?, id FROM tags WHERE name = ?`,
+      [dishId, tagName]
+    );
+  }
+}
+
 // POST /api/dishes   新增一道湯品，可同時帶入標籤（用、分隔的文字）
 router.post('/', async (req, res) => {
   try {
@@ -81,23 +105,7 @@ router.post('/', async (req, res) => {
 
     const dishId = result.insertId;
 
-    // 處理標籤：用「、」或「,」分隔，逐一建立標籤（若不存在）並建立關聯
-    const tagNames = (tags || '')
-      .split(/[、,]/)
-      .map(t => t.trim())
-      .filter(Boolean);
-
-    for (const tagName of tagNames) {
-      await pool.query(
-        'INSERT IGNORE INTO tags (name) VALUES (?)',
-        [tagName]
-      );
-      await pool.query(
-        `INSERT INTO dish_tags (dish_id, tag_id)
-         SELECT ?, id FROM tags WHERE name = ?`,
-        [dishId, tagName]
-      );
-    }
+    await syncDishTags(dishId, tags);
 
     res.status(201).json({ message: '新增成功', id: dishId });
   } catch (err) {
@@ -106,11 +114,11 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/dishes/:id   編輯湯品資料（名稱、價格、說明、禁忌、上下架狀態）
+// PUT /api/dishes/:id   編輯湯品資料（名稱、價格、說明、禁忌、標籤、上下架狀態）
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, price, description, contraindication, is_available } = req.body;
+    const { name, price, description, contraindication, is_available, tags } = req.body;
 
     const [result] = await pool.query(
       `UPDATE dishes 
@@ -121,6 +129,12 @@ router.put('/:id', async (req, res) => {
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: '找不到此湯品' });
+    }
+
+    // tags 欄位有帶值（哪怕是空字串，代表使用者清空了標籤）才更新，
+    // undefined 代表這次請求沒打算動標籤，維持原樣
+    if (tags !== undefined) {
+      await syncDishTags(id, tags);
     }
 
     res.json({ message: '更新成功' });

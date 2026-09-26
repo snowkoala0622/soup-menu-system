@@ -301,6 +301,33 @@
     font-size: 12px;
   }
 
+  /* 浮動 AI 湯品推薦按鈕（圖片輪播） */
+  .ai-fab {
+    position: fixed;
+    right: 20px;
+    bottom: 120px;
+    width: 168px;
+    z-index: 41;
+    display: block;
+    text-decoration: none;
+    filter: drop-shadow(0 10px 20px rgba(43,38,32,0.25));
+    transition: transform 0.2s ease;
+  }
+  .ai-fab:hover { transform: translateY(-4px) scale(1.04); }
+  .ai-fab img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  @media (max-width: 480px) {
+    .ai-fab {
+      width: 130px;
+      right: 12px;
+      bottom: 95px;
+    }
+  }
+
   /* 購物車彈窗 */
   .cart-modal { max-width: 420px; }
   .cart-modal .cart-header {
@@ -557,7 +584,6 @@
 
 <header>
   <div class="header-actions">
-    <a href="/facial-analysis.html" class="ai-btn">✨ AI湯品推薦</a>
     <a href="/login.html" class="member-btn" id="member-btn">
       <span class="dot" id="member-dot"></span>
       <span id="member-label">會員登入</span>
@@ -593,6 +619,10 @@
 <div class="overlay" id="cart-overlay">
   <div class="modal cart-modal" id="cart-modal-content"></div>
 </div>
+
+<a href="/facial-analysis.html" class="ai-fab" id="ai-fab">
+  <img src="/uploads/ai-fab-1.png" alt="AI湯品推薦" id="ai-fab-img">
+</a>
 
 <button class="cart-fab" id="cart-fab" onclick="openCart()">
   🧺 購物車 <span class="badge" id="cart-count">0</span>
@@ -929,6 +959,17 @@ document.getElementById('cart-overlay').addEventListener('click', (e) => {
 });
 
 load();
+
+// AI 湯品推薦浮動按鈕：三張圖片自動輪播
+(function rotateAiFab() {
+  const images = ['/uploads/ai-fab-1.png', '/uploads/ai-fab-2.png', '/uploads/ai-fab-3.png'];
+  let index = 0;
+  const img = document.getElementById('ai-fab-img');
+  setInterval(() => {
+    index = (index + 1) % images.length;
+    img.src = images[index];
+  }, 5000);
+})();
 </script>
 
 </body>
