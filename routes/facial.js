@@ -66,16 +66,26 @@ router.post('/', optionalAuth, upload.single('photo'), async (req, res) => {
       GROUP BY d.id
     `);
 
-    const dishListText = dishes
+    const shuffled = [...dishes];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const dishListText = shuffled
       .map(d => `id=${d.id}｜${d.name}｜功效:${d.description || '無'}｜標籤:${d.tags || '無'}`)
       .join('\n');
 
     const prompt = `你是一位中醫養生顧問。請根據使用者上傳的照片，觀察臉部氣色、眼周狀態（如黑眼圈、浮腫），以及舌頭（若照片中有拍到，觀察舌色、舌苔；若沒拍到舌頭則此欄位留空字串）。
 
-根據觀察結果，判斷使用者目前偏向哪一種中醫體質（例如：氣虛、陰虛、陽虛、濕熱、氣血兩虛等），並從下方「目前供應的湯品清單」中，選出 2 到 3 道最適合的湯品，由最推薦到次推薦排序。
+根據觀察結果，判斷使用者目前偏向哪一種中醫體質，並從下方「目前供應的湯品清單」中，選出 2 到 3 道最適合的湯品，由最推薦到次推薦排序。
 
 湯品清單：
 ${dishListText}
+判斷與推薦時請遵守以下原則：
+1. 照片若沒有明顯偏頗的跡象，不必勉強往虛證靠。
+2. reasoning 與每道湯品的 reason，都要引用「這張照片實際看到的具體特徵」（例如舌苔顏色、眼周狀態），不要只寫「元氣不足」「氣血不足」這類籠統說法。
+3. reason 請用你自己的話寫，不要直接照抄清單裡的「功效」文字。
+4. 推薦的 2 到 3 道湯品請盡量涵蓋不同的調理方向，不要全部都是同一類功效，也不要因為某道湯在清單中的位置而優先推薦它。
 
 請務必只回傳以下格式的 JSON，不要有任何其他文字、不要用 markdown 的 \`\`\` 包住：
 {

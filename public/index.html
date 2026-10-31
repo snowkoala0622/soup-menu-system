@@ -185,6 +185,8 @@
     position: relative;
     transition: transform 0.25s ease, box-shadow 0.25s ease;
     cursor: pointer;
+    display: flex;
+    flex-direction: column;
   }
   .card:hover {
     transform: translateY(-4px);
@@ -192,6 +194,7 @@
   }
 
   .photo {
+    flex-shrink: 0;
     width: 100%;
     aspect-ratio: 4 / 3;
     background: var(--paper-deep);
@@ -218,6 +221,9 @@
 
   .body {
     padding: 18px 20px 22px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
 
   .name {
@@ -257,7 +263,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 14px;
+    margin-top: auto;
+    padding-top: 14px;
   }
   .add-cart-btn {
     font-family: 'Noto Sans TC', sans-serif;
@@ -272,6 +279,72 @@
   }
   .add-cart-btn:hover { background: var(--herb); color: #F5F0E5; }
   .add-cart-btn:active { transform: scale(0.96); }
+
+  /* 卡片上的飲用禁忌 */
+  .card-warn {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+  }
+  .card-warn-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--seal);
+    letter-spacing: 0.08em;
+    margin-right: 2px;
+  }
+  .card-warn .warn-chip {
+    font-size: 11px;
+    padding: 2px 9px;
+  }
+
+  /* 菜單卡片點餐數量選擇器 */
+  .card-qty-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 4px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--paper);
+  }
+  .card-qty-control button {
+    width: 27px;
+    height: 27px;
+    border: 1px solid var(--herb);
+    border-radius: 50%;
+    background: #FFFDF8;
+    color: var(--herb-deep);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .card-qty-control button:hover {
+    background: var(--herb);
+    color: #F5F0E5;
+  }
+  .card-qty-control button:active { transform: scale(0.94); }
+  .card-qty-value {
+    min-width: 18px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .card-footer {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .card-order-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  @media (max-width: 360px) {
+    .card-order-actions { width: 100%; justify-content: space-between; }
+  }
 
   /* 浮動購物車按鈕 */
   .cart-fab {
@@ -621,7 +694,7 @@
 </div>
 
 <a href="/facial-analysis.html" class="ai-fab" id="ai-fab">
-  <img src="/uploads/ai-fab-1.png" alt="AI湯品推薦" id="ai-fab-img">
+  <img src="/uploads/ai-fab-4.png" alt="AI湯品推薦" id="ai-fab-img">
 </a>
 
 <button class="cart-fab" id="cart-fab" onclick="openCart()">
@@ -633,6 +706,8 @@
 <script>
 let allDishes = [];
 let activeCategory = null;
+// 記錄每張菜單卡片目前選擇的數量，切換分類時保留
+const cardQuantities = {};
 
 async function load() {
   const res = await fetch('/api/dishes');
@@ -649,10 +724,10 @@ function checkPendingCartItem() {
   if (!pending) return;
   localStorage.removeItem('pendingCartItem');
   try {
-    const { dish_id, record_id } = JSON.parse(pending);
-    addToCart(dish_id);
+    const { dish_id, record_id, quantity } = JSON.parse(pending);
+    addToCart(dish_id, quantity || 1);
     if (record_id) pendingFacialRecordId = record_id;
-    setTimeout(() => showToast('已將 AI 推薦的湯品加入購物車'), 300);
+    setTimeout(() => showToast(`已將 AI 推薦的湯品 ${quantity || 1} 份加入購物車`), 300);
   } catch {}
 }
 
@@ -706,9 +781,22 @@ function render() {
           <div class="tags">
             ${(d.tags || '').split('、').filter(Boolean).map(t => `<span class="tag">${t}</span>`).join('')}
           </div>
+          ${d.contraindication ? `
+            <div class="card-warn">
+              <span class="card-warn-label">⚠ 禁忌</span>
+              ${renderContraChips(d.contraindication)}
+            </div>
+          ` : ''}
           <div class="card-footer">
             <span class="card-price">NT$ ${Math.round(d.price)}</span>
-            <button class="add-cart-btn" data-add="${d.id}">加入購物車</button>
+            <div class="card-order-actions">
+              <div class="card-qty-control" aria-label="選擇${d.name}數量">
+                <button type="button" data-qty-minus="${d.id}" aria-label="減少數量">−</button>
+                <span class="card-qty-value" id="card-qty-${d.id}">${cardQuantities[d.id] || 1}</span>
+                <button type="button" data-qty-plus="${d.id}" aria-label="增加數量">+</button>
+              </div>
+              <button class="add-cart-btn" data-add="${d.id}">加入購物車</button>
+            </div>
           </div>
         </div>
       </div>
@@ -724,10 +812,29 @@ function render() {
     });
   });
 
+  // 菜單卡片上的數量增減
+  grid.querySelectorAll('[data-qty-minus], [data-qty-plus]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dishId = btn.dataset.qtyMinus || btn.dataset.qtyPlus;
+      const currentQty = cardQuantities[dishId] || 1;
+      const delta = btn.hasAttribute('data-qty-plus') ? 1 : -1;
+      cardQuantities[dishId] = Math.max(1, currentQty + delta);
+      const qtyEl = document.getElementById(`card-qty-${dishId}`);
+      if (qtyEl) qtyEl.textContent = cardQuantities[dishId];
+    });
+  });
+
   grid.querySelectorAll('[data-add]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      addToCart(btn.dataset.add);
+      const dishId = btn.dataset.add;
+      const quantity = cardQuantities[dishId] || 1;
+      addToCart(dishId, quantity);
+      // 加入後將菜單卡片數量重設為 1
+      cardQuantities[dishId] = 1;
+      const qtyEl = document.getElementById(`card-qty-${dishId}`);
+      if (qtyEl) qtyEl.textContent = '1';
     });
   });
 }
@@ -785,17 +892,23 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2000);
 }
 
-function addToCart(dishId) {
+function addToCart(dishId, quantity = 1) {
   const d = allDishes.find(x => String(x.id) === String(dishId));
   if (!d) return;
 
-  const existing = cart.find(c => c.dish_id === d.id);
+  const addQuantity = Math.max(1, Number(quantity) || 1);
+  const existing = cart.find(c => String(c.dish_id) === String(d.id));
   if (existing) {
-    existing.quantity += 1;
+    existing.quantity += addQuantity;
   } else {
-    cart.push({ dish_id: d.id, name: d.name, price: d.price, quantity: 1 });
+    cart.push({
+      dish_id: d.id,
+      name: d.name,
+      price: d.price,
+      quantity: addQuantity
+    });
   }
-  showToast(`已加入「${d.name}」`);
+  showToast(`已將「${d.name}」${addQuantity} 份加入購物車`);
   updateCartFab();
 }
 
@@ -962,7 +1075,7 @@ load();
 
 // AI 湯品推薦浮動按鈕：三張圖片自動輪播
 (function rotateAiFab() {
-  const images = ['/uploads/ai-fab-1.png', '/uploads/ai-fab-2.png', '/uploads/ai-fab-3.png'];
+  const images = ['/uploads/ai-fab-4.png', '/uploads/ai-fab-5.png', '/uploads/ai-fab-6.png'];
   let index = 0;
   const img = document.getElementById('ai-fab-img');
   setInterval(() => {

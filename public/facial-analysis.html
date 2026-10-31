@@ -307,6 +307,56 @@
   }
   .add-cart-btn:hover { background: var(--herb); color: #F5F0E5; }
 
+  /* AI 推薦卡片數量選擇器 */
+  .recommended-order-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .recommended-qty-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 112px;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--paper);
+  }
+  .recommended-qty-control button {
+    width: 29px;
+    height: 29px;
+    border: 1px solid var(--herb);
+    border-radius: 50%;
+    background: #FFFDF8;
+    color: var(--herb-deep);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .recommended-qty-control button:hover {
+    background: var(--herb);
+    color: #F5F0E5;
+  }
+  .recommended-qty-value {
+    min-width: 18px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .recommended-order-actions .add-cart-btn {
+    flex: 1;
+    width: auto;
+    margin-top: 0;
+  }
+  @media (max-width: 380px) {
+    .recommended-order-actions { gap: 7px; }
+    .recommended-qty-control { min-width: 100px; gap: 7px; }
+    .recommended-order-actions .add-cart-btn { font-size: 12.5px; }
+  }
+
   .retry-btn {
     display: block;
     text-align: center;
@@ -336,7 +386,7 @@
 <body>
 
 <header>
-  <a href="/index.html" class="back-link">← 返回菜單</a>
+  <a href="/index.html" class="back-link" style="font-size: 18px; font-weight: bold;">← 返回菜單</a>
  
   <h1>AI 湯品推薦</h1>
   <div class="sub">將臉對準畫面，偵測到臉部會自動拍照</div>
@@ -354,6 +404,8 @@
 const token = localStorage.getItem('token');
 let selectedFile = null;
 let cameraStream = null;
+// 每道 AI 推薦湯品各自記錄選擇數量
+const recommendedQuantities = {};
 
 function renderUploadUI() {
   document.getElementById('main').innerHTML = `
@@ -717,9 +769,16 @@ function renderResult(data) {
           </div>
         </div>
         <div class="rec-reason">${dish.reason || ''}</div>
-        <button class="add-cart-btn" onclick="addRecommendedToCart(${dish.id}, '${dish.name}', ${data.record_id || 'null'})">
-          將這道湯加入購物車
-        </button>
+        <div class="recommended-order-actions">
+          <div class="recommended-qty-control" aria-label="選擇${dish.name}數量">
+            <button type="button" onclick="changeRecommendedQty(${dish.id}, -1)" aria-label="減少數量">−</button>
+            <span class="recommended-qty-value" id="recommended-qty-${dish.id}">${recommendedQuantities[dish.id] || 1}</span>
+            <button type="button" onclick="changeRecommendedQty(${dish.id}, 1)" aria-label="增加數量">+</button>
+          </div>
+          <button class="add-cart-btn" onclick="addRecommendedToCart(${dish.id}, '${dish.name}', ${data.record_id || 'null'})">
+            加入購物車
+          </button>
+        </div>
       </div>
     `).join('')}
 
@@ -729,8 +788,21 @@ function renderResult(data) {
   document.getElementById('result').classList.add('show');
 }
 
+function changeRecommendedQty(dishId, delta) {
+  const currentQty = recommendedQuantities[dishId] || 1;
+  recommendedQuantities[dishId] = Math.max(1, currentQty + delta);
+  const qtyEl = document.getElementById(`recommended-qty-${dishId}`);
+  if (qtyEl) qtyEl.textContent = recommendedQuantities[dishId];
+}
+
 function addRecommendedToCart(dishId, dishName, recordId) {
-  localStorage.setItem('pendingCartItem', JSON.stringify({ dish_id: dishId, name: dishName, record_id: recordId }));
+  const quantity = recommendedQuantities[dishId] || 1;
+  localStorage.setItem('pendingCartItem', JSON.stringify({
+    dish_id: dishId,
+    name: dishName,
+    quantity,
+    record_id: recordId
+  }));
   window.location.href = '/index.html';
 }
 
