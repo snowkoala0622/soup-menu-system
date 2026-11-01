@@ -343,7 +343,7 @@ function render() {
         <span class="order-time">${formatTime(o.created_at)}</span>
       </div>
       <div class="order-member">
-  ${o.customer_name}${o.member_phone ? `（${o.member_phone}）` : '（訪客）'}
+  ${o.customer_name}${o.member_phone ? `（${o.member_phone}）` : ''}
 </div>
       ${o.items.map(item => `
         <div class="item-row">
