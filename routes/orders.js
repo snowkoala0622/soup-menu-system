@@ -49,10 +49,11 @@ router.post('/', optionalAuth, async (req, res) => {
         ? parseInt(facial_record_id)
         : null;
 
+    // 新訂單一送出就直接進入「製作中」（廚房後台已經沒有「待處理」這個狀態）
     const [orderResult] = await connection.query(
       `INSERT INTO orders (member_id, guest_name, facial_record_id, status, total_amount)
        VALUES (?, ?, ?, ?, ?)`,
-      [memberId, memberId ? null : (guest_name?.trim() || null), validFacialRecordId, '待處理', totalAmount]
+      [memberId, memberId ? null : (guest_name?.trim() || null), validFacialRecordId, '製作中', totalAmount]
     );
     const orderId = orderResult.insertId;
 

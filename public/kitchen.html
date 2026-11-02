@@ -153,6 +153,18 @@
     0%, 100% { box-shadow: 0 0 0 rgba(230, 57, 70, 0); }
     50% { box-shadow: 0 0 0 4px rgba(230, 57, 70, 0.18); }
   }
+  .table-no {
+    display: inline-block;
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    font-size: 15px;
+    letter-spacing: 0.05em;
+    color: var(--herb-deep);
+    background: rgba(79,99,83,0.12);
+    border-radius: 999px;
+    padding: 3px 14px;
+    margin-bottom: 8px;
+  }
   .overdue-badge {
     display: none;
     font-size: 11px;
@@ -277,13 +289,14 @@
 <div class="toast" id="toast"></div>
 
 <script>
+const TABLE_NUMBER = '6'; // 桌號：
 const STATUSES = ['製作中', '已完成'];
 let currentFilter = '製作中';
 let orders = [];
 
 function renderFilterTabs() {
   const el = document.getElementById('filter-tabs');
-  const options = ['全部', ...STATUSES];
+  const options = [...STATUSES];
   el.innerHTML = options.map(s =>
     `<button class="filter-tab ${s === currentFilter ? 'active' : ''}" data-filter="${s}">${s}</button>`
   ).join('');
@@ -337,6 +350,7 @@ function render() {
 
   board.innerHTML = orders.map(o => `
     <div class="order-card st-${o.status}" data-status="${o.status}" data-created="${o.created_at}">
+      <div class="table-no">桌號：${TABLE_NUMBER}</div>
       <div class="overdue-badge">⚠ 已閒置超過 10 分鐘</div>
       <div class="order-top">
         <span class="order-id">#${o.id}</span>
@@ -365,7 +379,6 @@ function render() {
 
   checkOverdue();
 }
-
 // 檢查每張「製作中」訂單卡片是否已超過 10 分鐘未完成，超過就加上 overdue 樣式（亮紅色提醒）
 function checkOverdue() {
   const now = Date.now();
