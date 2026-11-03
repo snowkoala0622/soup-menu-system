@@ -35,8 +35,8 @@ function signToken(member) {
   );
 }
 
-// 產生一組新驗證碼、存進資料庫（只存雜湊，不存明碼）並寄出。
-// 回傳 { sent: false } 代表還在冷卻時間內、這次沒有寄；寄信失敗會丟出錯誤（同時把剛存的碼刪掉，讓使用者可以馬上重試）。
+// 產生一組新驗證碼、存進資料庫(只存雜湊,不存明碼)並寄出。
+// 回傳 { sent: false } 代表還在冷卻時間內、這次沒有寄;寄信失敗會丟出錯誤(同時把剛存的碼刪掉,讓使用者可以馬上重試)。
 async function issueCode(memberId, email, purpose) {
   const [recent] = await pool.query(
     `SELECT id FROM email_codes
@@ -65,7 +65,7 @@ async function issueCode(memberId, email, purpose) {
   return { sent: true };
 }
 
-// 檢查使用者輸入的驗證碼。回傳 'ok' | 'invalid'（錯誤或已過期）| 'locked'（錯太多次）
+// 檢查使用者輸入的驗證碼。回傳 'ok' | 'invalid'(錯誤或已過期) | 'locked'(錯太多次)
 async function checkCode(memberId, purpose, code) {
   const [rows] = await pool.query(
     `SELECT id, code_hash FROM email_codes
@@ -75,7 +75,7 @@ async function checkCode(memberId, purpose, code) {
   );
   if (rows.length === 0) return 'invalid';
 
-  // 先把嘗試次數 +1 再比對：同時送來很多個請求時，也不會超過次數上限
+  // 先把嘗試次數 +1 再比對:同時送來很多個請求時,也不會超過次數上限
   const [bump] = await pool.query(
     'UPDATE email_codes SET attempts = attempts + 1 WHERE id = ? AND attempts < ?',
     [rows[0].id, MAX_CODE_ATTEMPTS]
@@ -88,12 +88,21 @@ async function checkCode(memberId, purpose, code) {
 
 function sendCodeError(res, result) {
   if (result === 'locked') {
-    return res.status(429).json({ error: '輸入錯誤次數過多，請重新取得驗證碼' });
+    return res.status(429).json({ error: '輸入錯誤次數過多,請重新取得驗證碼' });
   }
   return res.status(400).json({ error: '驗證碼錯誤或已過期' });
 }
 
-// POST /api/members/register   註冊新會員（需要信箱，註冊後要先驗證信箱才能登入）
+// 檢查某個信箱是不是已經被「別人」用了(members.email,排除自己這個 id)
+async function isEmailTakenByOthers(email, excludeMemberId) {
+  const [rows] = await pool.query(
+    'SELECT id FROM members WHERE email = ? AND id != ?',
+    [email, excludeMemberId]
+  );
+  return rows.length > 0;
+}
+
+// POST /api/members/register   註冊新會員(需要信箱,註冊後要先驗證信箱才能登入)
 router.post('/register', async (req, res) => {
   try {
     const { phone, password, name } = req.body;
@@ -115,7 +124,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: '密碼至少需要 6 個字元' });
     }
 
-    // 同信箱的待驗證帳號如果剛寄過驗證碼，先擋下，避免這支 API 被拿來連續寄信騷擾別人
+    // 同信箱的待驗證帳號如果剛寄過驗證碼,先擋下,避免這支 API 被拿來連續寄信騷擾別人
     const [justSent] = await pool.query(
       `SELECT m.id FROM members m
        JOIN email_codes c ON c.member_id = m.id AND c.purpose = 'verify'
@@ -125,11 +134,11 @@ router.post('/register', async (req, res) => {
       [email, RESEND_COOLDOWN_SECONDS]
     );
     if (justSent.length > 0) {
-      return res.status(429).json({ error: '驗證碼剛寄出，請稍候約 1 分鐘再試' });
+      return res.status(429).json({ error: '驗證碼剛寄出,請稍候約 1 分鐘再試' });
     }
 
-    // 清掉「註冊到一半、一直沒驗證」的舊紀錄（同手機或同信箱），讓人可以重新註冊。
-    // 條件要求 email 不是 NULL，所以沒有信箱的舊會員不會被刪到。
+    // 清掉「註冊到一半、一直沒驗證」的舊紀錄(同手機或同信箱),讓人可以重新註冊。
+    // 條件要求 email 不是 NULL,所以沒有信箱的舊會員不會被刪到。
     await pool.query(
       `DELETE FROM members
        WHERE email IS NOT NULL AND email_verified = 0 AND (phone = ? OR email = ?)`,
@@ -152,7 +161,7 @@ router.post('/register', async (req, res) => {
       [phone, passwordHash, name || null, email]
     );
 
-    // 帳號建立後寄驗證碼；寄信失敗不會讓註冊失敗，使用者可以在驗證畫面按「重新寄送」
+    // 帳號建立後寄驗證碼;寄信失敗不會讓註冊失敗,使用者可以在驗證畫面按「重新寄送」
     let emailSent = true;
     try {
       await issueCode(result.insertId, email, 'verify');
@@ -162,7 +171,7 @@ router.post('/register', async (req, res) => {
     }
 
     res.status(201).json({
-      message: emailSent ? '註冊成功，驗證碼已寄到你的信箱' : '註冊成功，但驗證碼寄送失敗，請按「重新寄送」',
+      message: emailSent ? '註冊成功,驗證碼已寄到你的信箱' : '註冊成功,但驗證碼寄送失敗,請按「重新寄送」',
       id: result.insertId,
       email,
       email_sent: emailSent
@@ -176,7 +185,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// POST /api/members/verify-email   輸入註冊時寄到信箱的驗證碼，通過後帳號啟用並直接登入
+// POST /api/members/verify-email   輸入註冊時寄到信箱的驗證碼,通過後帳號啟用並直接登入
 router.post('/verify-email', async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
@@ -213,7 +222,7 @@ router.post('/verify-email', async (req, res) => {
 });
 
 // POST /api/members/resend-verification   重新寄送註冊驗證碼
-// 不論信箱存不存在、是否在冷卻時間內，都回一樣的訊息，避免被拿來探測誰註冊過
+// 不論信箱存不存在、是否在冷卻時間內,都回一樣的訊息,避免被拿來探測誰註冊過
 router.post('/resend-verification', async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
@@ -233,14 +242,14 @@ router.post('/resend-verification', async (req, res) => {
       }
     }
 
-    res.json({ message: '如果這個信箱有待驗證的帳號，驗證碼已重新寄出' });
+    res.json({ message: '如果這個信箱有待驗證的帳號,驗證碼已重新寄出' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '寄送失敗' });
   }
 });
 
-// POST /api/members/forgot-password   忘記密碼：寄驗證碼到註冊時的信箱
+// POST /api/members/forgot-password   忘記密碼:寄驗證碼到註冊時的信箱
 // 一樣不透露信箱是否註冊過
 router.post('/forgot-password', async (req, res) => {
   try {
@@ -261,14 +270,14 @@ router.post('/forgot-password', async (req, res) => {
       }
     }
 
-    res.json({ message: `如果這個信箱已註冊，驗證碼已寄出（${CODE_TTL_MINUTES} 分鐘內有效）` });
+    res.json({ message: `如果這個信箱已註冊,驗證碼已寄出(${CODE_TTL_MINUTES} 分鐘內有效)` });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '寄送失敗' });
   }
 });
 
-// POST /api/members/reset-password   輸入驗證碼與新密碼，完成重設
+// POST /api/members/reset-password   輸入驗證碼與新密碼,完成重設
 router.post('/reset-password', async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
@@ -298,14 +307,14 @@ router.post('/reset-password', async (req, res) => {
     await pool.query('UPDATE members SET password_hash = ? WHERE id = ?', [newHash, memberId]);
     await pool.query('DELETE FROM email_codes WHERE member_id = ?', [memberId]);
 
-    res.json({ message: '密碼已重設，請用新密碼登入' });
+    res.json({ message: '密碼已重設,請用新密碼登入' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '重設失敗' });
   }
 });
 
-// POST /api/members/login   登入，成功後回傳 JWT 憑證
+// POST /api/members/login   登入,成功後回傳 JWT 憑證
 router.post('/login', async (req, res) => {
   try {
     const { phone, password } = req.body;
@@ -330,11 +339,11 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: '手機號碼或密碼錯誤' });
     }
 
-    // 有填信箱但還沒驗證的帳號不能登入（密碼正確才會看到這個提示）。
-    // 沒有信箱的舊會員（email 是 NULL）照舊可以登入。
+    // 有填信箱但還沒驗證的帳號不能登入(密碼正確才會看到這個提示)。
+    // 沒有信箱的舊會員(email 是 NULL)照舊可以登入。
     if (member.email && !member.email_verified) {
       return res.status(403).json({
-        error: '這個帳號的信箱還沒驗證，請先完成信箱驗證',
+        error: '這個帳號的信箱還沒驗證,請先完成信箱驗證',
         needs_verification: true,
         email: member.email
       });
@@ -351,11 +360,11 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/members/me   取得目前登入會員自己的資料（需登入）
+// GET /api/members/me   取得目前登入會員自己的資料(需登入)
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, phone, name, email, email_verified, created_at FROM members WHERE id = ?',
+      'SELECT id, phone, name, email, email_verified, pending_email, created_at FROM members WHERE id = ?',
       [req.member.member_id]
     );
 
@@ -370,7 +379,7 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
-// PUT /api/members/me   修改自己的姓名／電話號碼（需登入）
+// PUT /api/members/me   修改自己的姓名／電話號碼(需登入)
 router.put('/me', requireAuth, async (req, res) => {
   try {
     const memberId = req.member.member_id;
@@ -380,7 +389,7 @@ router.put('/me', requireAuth, async (req, res) => {
       return res.status(400).json({ error: '電話號碼為必填' });
     }
 
-    // 檢查這個電話號碼是不是「別人」已經在用了（自己原本的號碼不算重複）
+    // 檢查這個電話號碼是不是「別人」已經在用了(自己原本的號碼不算重複)
     const [existing] = await pool.query(
       'SELECT id FROM members WHERE phone = ? AND id != ?',
       [phone.trim(), memberId]
@@ -394,8 +403,8 @@ router.put('/me', requireAuth, async (req, res) => {
       [name?.trim() || null, phone.trim(), memberId]
     );
 
-    // 電話號碼是登入憑證裡的一部分，改了之後要重新核發一組新的 token，
-    // 不然舊 token 裡存的還是舊電話號碼，前端顯示會對不上
+    // 電話號碼是登入憑證裡的一部分,改了之後要重新核發一組新的 token,
+    // 不然舊 token 裡存的還是舊電話號碼,前端顯示會對不上
     const newToken = jwt.sign(
       { member_id: memberId, phone: phone.trim() },
       process.env.JWT_SECRET,
@@ -413,42 +422,118 @@ router.put('/me', requireAuth, async (req, res) => {
   }
 });
 
-// PUT /api/members/me/password   修改密碼（需登入，需先驗證目前密碼正確）
-router.put('/me/password', requireAuth, async (req, res) => {
+// POST /api/members/me/email   申請更改信箱(需登入):把新信箱暫存到 pending_email,並寄驗證碼到新信箱
+router.post('/me/email', requireAuth, async (req, res) => {
   try {
     const memberId = req.member.member_id;
-    const { current_password, new_password } = req.body;
+    const newEmail = normalizeEmail(req.body.new_email);
 
-    if (!current_password || !new_password) {
-      return res.status(400).json({ error: '請輸入目前密碼與新密碼' });
+    if (!newEmail) {
+      return res.status(400).json({ error: '請填寫新的信箱' });
     }
-    if (new_password.length < 6) {
-      return res.status(400).json({ error: '新密碼至少需要 6 個字元' });
+    if (!isValidEmail(newEmail)) {
+      return res.status(400).json({ error: '信箱格式不正確' });
+    }
+    if (ONLY_GMAIL && !newEmail.endsWith('@gmail.com')) {
+      return res.status(400).json({ error: '目前只開放使用 Gmail 信箱' });
     }
 
-    const [rows] = await pool.query(
-      'SELECT password_hash FROM members WHERE id = ?',
-      [memberId]
-    );
+    const [rows] = await pool.query('SELECT email FROM members WHERE id = ?', [memberId]);
     if (rows.length === 0) {
       return res.status(404).json({ error: '找不到會員資料' });
     }
-
-    const isMatch = await bcrypt.compare(current_password, rows[0].password_hash);
-    if (!isMatch) {
-      return res.status(401).json({ error: '目前密碼不正確' });
+    if (rows[0].email === newEmail) {
+      return res.status(400).json({ error: '這就是你目前使用中的信箱' });
     }
 
-    const newHash = await bcrypt.hash(new_password, SALT_ROUNDS);
-    await pool.query(
-      'UPDATE members SET password_hash = ? WHERE id = ?',
-      [newHash, memberId]
-    );
+    if (await isEmailTakenByOthers(newEmail, memberId)) {
+      return res.status(409).json({ error: '此信箱已被其他帳號使用' });
+    }
 
-    res.json({ message: '密碼已更新' });
+    await pool.query('UPDATE members SET pending_email = ? WHERE id = ?', [newEmail, memberId]);
+
+    let emailSent = true;
+    try {
+      const result = await issueCode(memberId, newEmail, 'change_email');
+      emailSent = result.sent;
+    } catch (mailErr) {
+      emailSent = false;
+      console.error('寄送信箱變更驗證碼失敗:', mailErr.message);
+    }
+
+    res.json({
+      message: emailSent ? '驗證碼已寄到新信箱,請在下方輸入' : '驗證碼剛寄過或寄送失敗,請稍候再試或按「重新寄送」',
+      email_sent: emailSent,
+      pending_email: newEmail
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: '更新失敗' });
+    res.status(500).json({ error: '申請失敗' });
+  }
+});
+
+// POST /api/members/me/email/resend   重新寄送信箱變更驗證碼(需登入)
+router.post('/me/email/resend', requireAuth, async (req, res) => {
+  try {
+    const memberId = req.member.member_id;
+
+    const [rows] = await pool.query('SELECT pending_email FROM members WHERE id = ?', [memberId]);
+    if (rows.length === 0 || !rows[0].pending_email) {
+      return res.status(400).json({ error: '目前沒有待驗證的信箱變更' });
+    }
+
+    let emailSent = true;
+    try {
+      const result = await issueCode(memberId, rows[0].pending_email, 'change_email');
+      emailSent = result.sent;
+    } catch (mailErr) {
+      emailSent = false;
+      console.error('重新寄送信箱變更驗證碼失敗:', mailErr.message);
+    }
+
+    res.json({ message: emailSent ? '驗證碼已重新寄出' : '驗證碼剛寄過,請稍候約 1 分鐘再試', email_sent: emailSent });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '寄送失敗' });
+  }
+});
+
+// POST /api/members/me/email/verify   輸入驗證碼,完成信箱變更(需登入)
+router.post('/me/email/verify', requireAuth, async (req, res) => {
+  try {
+    const memberId = req.member.member_id;
+    const code = String(req.body.code || '').trim();
+
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: '請輸入 6 位數驗證碼' });
+    }
+
+    const [rows] = await pool.query('SELECT pending_email FROM members WHERE id = ?', [memberId]);
+    if (rows.length === 0 || !rows[0].pending_email) {
+      return res.status(400).json({ error: '目前沒有待驗證的信箱變更' });
+    }
+    const newEmail = rows[0].pending_email;
+
+    // 驗證碼寄出後,新信箱有可能剛好被別人搶先用掉了,這裡再保險檢查一次
+    if (await isEmailTakenByOthers(newEmail, memberId)) {
+      await pool.query('UPDATE members SET pending_email = NULL WHERE id = ?', [memberId]);
+      await pool.query('DELETE FROM email_codes WHERE member_id = ? AND purpose = ?', [memberId, 'change_email']);
+      return res.status(409).json({ error: '此信箱已被其他帳號使用,請重新申請變更' });
+    }
+
+    const result = await checkCode(memberId, 'change_email', code);
+    if (result !== 'ok') return sendCodeError(res, result);
+
+    await pool.query(
+      'UPDATE members SET email = ?, pending_email = NULL, email_verified = 1 WHERE id = ?',
+      [newEmail, memberId]
+    );
+    await pool.query('DELETE FROM email_codes WHERE member_id = ? AND purpose = ?', [memberId, 'change_email']);
+
+    res.json({ message: 'Email 已更新', email: newEmail });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '驗證失敗' });
   }
 });
 

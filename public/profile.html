@@ -117,6 +117,49 @@
     cursor: not-allowed;
   }
 
+  .current-email {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 9px 12px;
+  }
+  .current-email strong { color: var(--ink); font-weight: 700; }
+
+  .pending-note {
+    font-size: 12.5px;
+    color: var(--herb-deep);
+    background: rgba(79,99,83,0.08);
+    border: 1px solid rgba(79,99,83,0.25);
+    border-radius: 5px;
+    padding: 9px 12px;
+    line-height: 1.5;
+  }
+
+  .resend-link {
+    align-self: flex-start;
+    font-size: 12px;
+    color: var(--herb-deep);
+    background: none;
+    border: none;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+  }
+  .resend-link:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
+
+  .cancel-link {
+    align-self: flex-start;
+    font-size: 12px;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+  }
+
   .submit-btn {
     margin-top: 4px;
     font-family: 'Noto Sans TC', sans-serif;
@@ -131,9 +174,6 @@
   }
   .submit-btn:hover { background: var(--herb-deep); }
   .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-  .submit-btn.danger { background: var(--seal); }
-  .submit-btn.danger:hover { background: #8f3527; }
 
   .msg {
     font-size: 12.5px;
@@ -171,13 +211,13 @@ let currentToken = localStorage.getItem('token');
 function renderNotLoggedIn() {
   document.getElementById('content').innerHTML = `
     <div class="not-logged-in">
-      尚未登入，<a href="/login.html">前往會員登入</a>
+      尚未登入,<a href="/login.html">前往會員登入</a>
     </div>
   `;
 }
 
 function renderForms(member) {
-  
+
   document.getElementById('content').innerHTML = `
     <div class="section-title">基本資料</div>
     <div class="msg" id="profile-msg"></div>
@@ -193,11 +233,54 @@ function renderForms(member) {
       <button type="submit" class="submit-btn" id="profile-btn">儲存變更</button>
     </form>
 
-    
+    <div class="section-title">修改 Email</div>
+    <div class="msg" id="email-msg"></div>
+    <div id="email-section"></div>
   `;
 
   document.getElementById('profile-form').addEventListener('submit', handleProfileSubmit);
-  //document.getElementById('password-form').addEventListener('submit', handlePasswordSubmit);
+  renderEmailSection(member);
+}
+
+// 依照目前是否有待驗證的新信箱(member.pending_email),顯示「輸入新信箱」或「輸入驗證碼」畫面
+function renderEmailSection(member) {
+  const section = document.getElementById('email-section');
+
+  if (member.pending_email) {
+    section.innerHTML = `
+      <div class="pending-note">
+        驗證碼已寄到 <strong>${escapeAttr(member.pending_email)}</strong>,請輸入收到的 6 碼驗證碼完成變更。
+      </div>
+      <form id="email-verify-form">
+        <div class="field">
+          <label>驗證碼</label>
+          <input type="text" id="email-code" placeholder="6 位數驗證碼" inputmode="numeric" maxlength="6" required>
+        </div>
+        <button type="submit" class="submit-btn" id="email-verify-btn">確認變更</button>
+      </form>
+      <button type="button" class="resend-link" id="email-resend-btn">重新寄送驗證碼</button>
+      <button type="button" class="cancel-link" id="email-cancel-btn">取消,重新輸入信箱</button>
+    `;
+    document.getElementById('email-verify-form').addEventListener('submit', handleEmailVerifySubmit);
+    document.getElementById('email-resend-btn').addEventListener('click', handleEmailResend);
+    document.getElementById('email-cancel-btn').addEventListener('click', () => {
+      member.pending_email = null;
+      renderEmailSection(member);
+      hideMsg('email-msg');
+    });
+  } else {
+    section.innerHTML = `
+      <div class="current-email"><strong>${member.email ? escapeAttr(member.email) : '尚未設定'}</strong></div>
+      <form id="email-request-form">
+        <div class="field">
+          <label>新的 Email</label>
+          <input type="email" id="new-email" placeholder="your@gmail.com" required>
+        </div>
+        <button type="submit" class="submit-btn" id="email-request-btn">送出並寄送驗證碼</button>
+      </form>
+    `;
+    document.getElementById('email-request-form').addEventListener('submit', (e) => handleEmailRequestSubmit(e, member));
+  }
 }
 
 function escapeAttr(str) {
@@ -238,50 +321,109 @@ async function handleProfileSubmit(e) {
       return;
     }
 
-    // 電話號碼改了，token跟著換新，順便更新localStorage裡存的會員資料
+    // 電話號碼改了,token跟著換新,順便更新localStorage裡存的會員資料
     currentToken = data.token;
     localStorage.setItem('token', data.token);
     localStorage.setItem('member', JSON.stringify(data.member));
 
     showMsg('profile-msg', '個人資料已更新', 'success');
   } catch {
-    showMsg('profile-msg', '連線失敗，請確認伺服器是否正常運作', 'error');
+    showMsg('profile-msg', '連線失敗,請確認伺服器是否正常運作', 'error');
   } finally {
     btn.disabled = false;
   }
 }
 
-async function handlePasswordSubmit(e) {
+// 第一步:送出新信箱,後端會寄驗證碼到新信箱並記住 pending_email
+async function handleEmailRequestSubmit(e, member) {
   e.preventDefault();
-  const btn = document.getElementById('password-btn');
+  const btn = document.getElementById('email-request-btn');
   btn.disabled = true;
-  hideMsg('password-msg');
+  hideMsg('email-msg');
 
-  const current_password = document.getElementById('current-password').value;
-  const new_password = document.getElementById('new-password').value;
+  const new_email = document.getElementById('new-email').value;
 
   try {
-    const res = await fetch('/api/members/me/password', {
-      method: 'PUT',
+    const res = await fetch('/api/members/me/email', {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${currentToken}`
       },
-      body: JSON.stringify({ current_password, new_password })
+      body: JSON.stringify({ new_email })
     });
     const data = await res.json();
 
     if (!res.ok) {
-      showMsg('password-msg', data.error || '更新失敗', 'error');
+      showMsg('email-msg', data.error || '申請失敗', 'error');
       return;
     }
 
-    showMsg('password-msg', '密碼已更新，下次登入請使用新密碼', 'success');
-    document.getElementById('password-form').reset();
+    member.pending_email = data.pending_email;
+    renderEmailSection(member);
+    showMsg('email-msg', data.message, data.email_sent ? 'success' : 'error');
   } catch {
-    showMsg('password-msg', '連線失敗，請確認伺服器是否正常運作', 'error');
+    showMsg('email-msg', '連線失敗,請確認伺服器是否正常運作', 'error');
   } finally {
     btn.disabled = false;
+  }
+}
+
+// 第二步:輸入驗證碼,完成信箱變更
+async function handleEmailVerifySubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('email-verify-btn');
+  btn.disabled = true;
+  hideMsg('email-msg');
+
+  const code = document.getElementById('email-code').value;
+
+  try {
+    const res = await fetch('/api/members/me/email/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg('email-msg', data.error || '驗證失敗', 'error');
+      return;
+    }
+
+    // 更新 localStorage 裡存的會員資料,並換回「目前信箱」畫面
+    const storedMember = JSON.parse(localStorage.getItem('member') || '{}');
+    storedMember.email = data.email;
+    localStorage.setItem('member', JSON.stringify(storedMember));
+
+    showMsg('email-msg', data.message, 'success');
+    renderEmailSection({ email: data.email, pending_email: null });
+  } catch {
+    showMsg('email-msg', '連線失敗,請確認伺服器是否正常運作', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handleEmailResend() {
+  const btn = document.getElementById('email-resend-btn');
+  btn.disabled = true;
+  hideMsg('email-msg');
+
+  try {
+    const res = await fetch('/api/members/me/email/resend', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+    const data = await res.json();
+    showMsg('email-msg', data.message || (res.ok ? '驗證碼已重新寄出' : '寄送失敗'), res.ok && data.email_sent ? 'success' : 'error');
+  } catch {
+    showMsg('email-msg', '連線失敗,請確認伺服器是否正常運作', 'error');
+  } finally {
+    setTimeout(() => { btn.disabled = false; }, 3000);
   }
 }
 
@@ -306,7 +448,7 @@ async function init() {
     const member = await res.json();
     renderForms(member);
   } catch {
-    document.getElementById('content').innerHTML = `<div class="not-logged-in">讀取失敗，請確認伺服器是否正常運作</div>`;
+    document.getElementById('content').innerHTML = `<div class="not-logged-in">讀取失敗,請確認伺服器是否正常運作</div>`;
   }
 }
 
