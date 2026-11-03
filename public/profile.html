@@ -193,23 +193,11 @@ function renderForms(member) {
       <button type="submit" class="submit-btn" id="profile-btn">儲存變更</button>
     </form>
 
-    <div class="section-title">修改密碼</div>
-    <div class="msg" id="password-msg"></div>
-    <form id="password-form">
-      <div class="field">
-        <label>目前密碼</label>
-        <input type="password" id="current-password" placeholder="請輸入目前密碼" required>
-      </div>
-      <div class="field">
-        <label>新密碼（至少 6 個字元）</label>
-        <input type="password" id="new-password" placeholder="請輸入新密碼" required minlength="6">
-      </div>
-      <button type="submit" class="submit-btn danger" id="password-btn">更新密碼</button>
-    </form>
+    
   `;
 
   document.getElementById('profile-form').addEventListener('submit', handleProfileSubmit);
-  document.getElementById('password-form').addEventListener('submit', handlePasswordSubmit);
+  //document.getElementById('password-form').addEventListener('submit', handlePasswordSubmit);
 }
 
 function escapeAttr(str) {

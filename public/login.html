@@ -187,6 +187,33 @@
     cursor: pointer;
   }
   .logout-btn:hover { border-color: var(--seal); color: var(--seal); }
+
+  .hint {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+  .code-input {
+    letter-spacing: 0.4em;
+    text-align: center;
+    font-size: 18px;
+  }
+  .link-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 12.5px;
+    color: var(--herb-deep);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .link-btn:hover { color: var(--seal); }
+  .link-btn:disabled {
+    color: var(--ink-soft);
+    text-decoration: none;
+    cursor: not-allowed;
+  }
 </style>
 </head>
 <body>
@@ -198,7 +225,7 @@
   <div class="sub" id="subtitle">登入後即可查看點餐紀錄</div>
 
   <div id="auth-section">
-    <div class="tabs">
+    <div class="tabs" id="tabs">
       <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">登入</button>
       <button class="tab-btn" id="tab-register" onclick="switchTab('register')">註冊</button>
     </div>
@@ -215,6 +242,7 @@
         <input type="password" id="login-password" placeholder="請輸入密碼" required>
       </div>
       <button type="submit" class="submit-btn" id="login-btn">登入</button>
+      <button type="button" class="link-btn" onclick="showForgot()">忘記密碼？</button>
     </form>
 
     <form id="register-form" onsubmit="handleRegister(event)">
@@ -227,10 +255,54 @@
         <input type="tel" id="register-phone" placeholder="0912345678" required>
       </div>
       <div class="field">
+        <label>信箱（用來驗證帳號與找回密碼）</label>
+        <input type="email" id="register-email" placeholder="yourname@gmail.com" required>
+      </div>
+      <div class="field">
         <label>密碼（至少 6 個字元）</label>
         <input type="password" id="register-password" placeholder="請設定密碼" required minlength="6">
       </div>
       <button type="submit" class="submit-btn" id="register-btn">註冊</button>
+    </form>
+
+    <form id="verify-form" onsubmit="handleVerify(event)">
+      <div class="hint" id="verify-hint"></div>
+      <div class="field">
+        <label>驗證碼（6 位數）</label>
+        <input type="text" id="verify-code" class="code-input" inputmode="numeric" maxlength="6" pattern="\d{6}" autocomplete="one-time-code" placeholder="000000" required>
+      </div>
+      <button type="submit" class="submit-btn" id="verify-btn">驗證</button>
+      <button type="button" class="link-btn" id="verify-resend" onclick="resendVerification()">重新寄送驗證碼</button>
+      <button type="button" class="link-btn" onclick="switchTab('login')">返回登入</button>
+    </form>
+
+    <form id="forgot-form" onsubmit="handleForgot(event)">
+      <div class="hint">輸入註冊時填寫的信箱，我們會寄一組驗證碼給你，用來重設密碼。</div>
+      <div class="field">
+        <label>信箱</label>
+        <input type="email" id="forgot-email" placeholder="yourname@gmail.com" required>
+      </div>
+      <button type="submit" class="submit-btn" id="forgot-btn">寄送驗證碼</button>
+      <button type="button" class="link-btn" onclick="switchTab('login')">返回登入</button>
+    </form>
+
+    <form id="reset-form" onsubmit="handleReset(event)">
+      <div class="hint" id="reset-hint"></div>
+      <div class="field">
+        <label>驗證碼（6 位數）</label>
+        <input type="text" id="reset-code" class="code-input" inputmode="numeric" maxlength="6" pattern="\d{6}" autocomplete="one-time-code" placeholder="000000" required>
+      </div>
+      <div class="field">
+        <label>新密碼（至少 6 個字元）</label>
+        <input type="password" id="reset-password" placeholder="請設定新密碼" required minlength="6">
+      </div>
+      <div class="field">
+        <label>再輸入一次新密碼</label>
+        <input type="password" id="reset-password2" placeholder="再輸入一次" required minlength="6">
+      </div>
+      <button type="submit" class="submit-btn" id="reset-btn">重設密碼</button>
+      <button type="button" class="link-btn" id="reset-resend" onclick="resendReset()">重新寄送驗證碼</button>
+      <button type="button" class="link-btn" onclick="switchTab('login')">返回登入</button>
     </form>
   </div>
 
@@ -244,12 +316,182 @@
 </div>
 
 <script>
+// 目前正在驗證／重設密碼的信箱
+let pendingEmail = '';
+
+const FORM_NAMES = ['login', 'register', 'verify', 'forgot', 'reset'];
+
+// 一次只顯示一個表單；登入／註冊才顯示上方的分頁切換
+function showForm(name) {
+  FORM_NAMES.forEach(n => {
+    document.getElementById(`${n}-form`).classList.toggle('active', n === name);
+  });
+  document.getElementById('tabs').style.display = (name === 'login' || name === 'register') ? 'flex' : 'none';
+  hideMsg();
+}
+
 function switchTab(tab) {
   document.getElementById('tab-login').classList.toggle('active', tab === 'login');
   document.getElementById('tab-register').classList.toggle('active', tab === 'register');
-  document.getElementById('login-form').classList.toggle('active', tab === 'login');
-  document.getElementById('register-form').classList.toggle('active', tab === 'register');
+  showForm(tab);
+}
+
+async function postJson(url, body) {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    let data = {};
+    try { data = await res.json(); } catch { /* 沒有 JSON 內容就維持空物件 */ }
+    return { ok: res.ok, data };
+  } catch {
+    return { ok: false, data: { error: '連線失敗，請確認伺服器是否正常運作' } };
+  }
+}
+
+// 「重新寄送」按鈕寄出後冷卻 60 秒，和後端的限制一致
+function startCooldown(btn, seconds = 60) {
+  if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+  const label = btn.dataset.label;
+  clearInterval(btn._timer);
+  let left = seconds;
+  btn.disabled = true;
+  btn.textContent = `${label}（${left}）`;
+  btn._timer = setInterval(() => {
+    left -= 1;
+    if (left <= 0) {
+      clearInterval(btn._timer);
+      btn.disabled = false;
+      btn.textContent = label;
+    } else {
+      btn.textContent = `${label}（${left}）`;
+    }
+  }, 1000);
+}
+
+function resetCooldown(btn) {
+  clearInterval(btn._timer);
+  btn.disabled = false;
+  if (btn.dataset.label) btn.textContent = btn.dataset.label;
+}
+
+function openVerify(email, { justSent = true, autoSend = false } = {}) {
+  pendingEmail = email;
+  document.getElementById('verify-hint').textContent =
+    `驗證碼會寄到 ${email}，10 分鐘內有效。沒收到的話請看一下垃圾郵件匣。`;
+  document.getElementById('verify-code').value = '';
+  showForm('verify');
+  resetCooldown(document.getElementById('verify-resend')); // 先清掉上一輪留下來的倒數
+  if (autoSend) {
+    resendVerification();
+  } else if (justSent) {
+    startCooldown(document.getElementById('verify-resend'));
+  }
+}
+
+async function resendVerification() {
   hideMsg();
+  const { ok, data } = await postJson('/api/members/resend-verification', { email: pendingEmail });
+  if (!ok) {
+    showMsg(data.error || '寄送失敗', 'error');
+    return;
+  }
+  showMsg('驗證碼已寄出，請到信箱查看', 'success');
+  startCooldown(document.getElementById('verify-resend'));
+}
+
+async function handleVerify(e) {
+  e.preventDefault();
+  const btn = document.getElementById('verify-btn');
+  btn.disabled = true;
+  hideMsg();
+
+  const code = document.getElementById('verify-code').value.trim();
+  const { ok, data } = await postJson('/api/members/verify-email', { email: pendingEmail, code });
+  btn.disabled = false;
+
+  if (!ok) {
+    showMsg(data.error || '驗證失敗', 'error');
+    return;
+  }
+  // 驗證成功直接登入
+  localStorage.setItem('token', data.token);
+  localStorage.setItem('member', JSON.stringify(data.member));
+  renderLoggedIn(data.member);
+}
+
+function showForgot() {
+  showForm('forgot');
+}
+
+async function handleForgot(e) {
+  e.preventDefault();
+  const btn = document.getElementById('forgot-btn');
+  btn.disabled = true;
+  hideMsg();
+
+  const email = document.getElementById('forgot-email').value.trim().toLowerCase();
+  const { ok, data } = await postJson('/api/members/forgot-password', { email });
+  btn.disabled = false;
+
+  if (!ok) {
+    showMsg(data.error || '寄送失敗', 'error');
+    return;
+  }
+  openReset(email);
+  showMsg(data.message, 'success');
+}
+
+function openReset(email) {
+  pendingEmail = email;
+  document.getElementById('reset-hint').textContent =
+    `驗證碼會寄到 ${email}（如果這個信箱有註冊的話），10 分鐘內有效。沒收到請看一下垃圾郵件匣。`;
+  ['reset-code', 'reset-password', 'reset-password2'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  showForm('reset');
+  startCooldown(document.getElementById('reset-resend'));
+}
+
+async function resendReset() {
+  hideMsg();
+  const { ok, data } = await postJson('/api/members/forgot-password', { email: pendingEmail });
+  if (!ok) {
+    showMsg(data.error || '寄送失敗', 'error');
+    return;
+  }
+  showMsg('驗證碼已重新寄出（如果這個信箱有註冊的話）', 'success');
+  startCooldown(document.getElementById('reset-resend'));
+}
+
+async function handleReset(e) {
+  e.preventDefault();
+  hideMsg();
+
+  const code = document.getElementById('reset-code').value.trim();
+  const password = document.getElementById('reset-password').value;
+  const password2 = document.getElementById('reset-password2').value;
+
+  if (password !== password2) {
+    showMsg('兩次輸入的新密碼不一樣', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('reset-btn');
+  btn.disabled = true;
+  const { ok, data } = await postJson('/api/members/reset-password', {
+    email: pendingEmail, code, new_password: password
+  });
+  btn.disabled = false;
+
+  if (!ok) {
+    showMsg(data.error || '重設失敗', 'error');
+    return;
+  }
+  switchTab('login');
+  showMsg(data.message, 'success');
 }
 
 function showMsg(text, type) {
@@ -279,6 +521,11 @@ async function handleLogin(e) {
     const data = await res.json();
 
     if (!res.ok) {
+      if (data.needs_verification) {
+        openVerify(data.email, { autoSend: true });
+        showMsg(data.error, 'error');
+        return;
+      }
       showMsg(data.error || '登入失敗', 'error');
       return;
     }
@@ -301,13 +548,14 @@ async function handleRegister(e) {
 
   const name = document.getElementById('register-name').value.trim();
   const phone = document.getElementById('register-phone').value.trim();
+  const email = document.getElementById('register-email').value.trim().toLowerCase();
   const password = document.getElementById('register-password').value;
 
   try {
     const res = await fetch('/api/members/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, password })
+      body: JSON.stringify({ name, phone, email, password })
     });
     const data = await res.json();
 
@@ -316,9 +564,9 @@ async function handleRegister(e) {
       return;
     }
 
-    showMsg('註冊成功，請切換到登入頁面登入', 'success');
     document.getElementById('register-form').reset();
-    setTimeout(() => switchTab('login'), 1200);
+    openVerify(data.email, { justSent: data.email_sent });
+    showMsg(data.message, data.email_sent ? 'success' : 'error');
   } catch {
     showMsg('連線失敗，請確認伺服器是否正常運作', 'error');
   } finally {
@@ -332,6 +580,8 @@ function handleLogout() {
   document.getElementById('auth-section').style.display = 'block';
   document.getElementById('logged-in-section').classList.remove('show');
   document.getElementById('subtitle').textContent = '登入後即可查看點餐紀錄';
+  pendingEmail = '';
+  switchTab('login'); // 回到登入表單（不然可能停在剛才的驗證畫面）
 }
 
 function renderLoggedIn(member) {
