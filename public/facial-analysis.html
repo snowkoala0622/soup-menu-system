@@ -457,6 +457,20 @@
     white-space: nowrap;
   }
   .confirm-btn:hover { background: var(--herb-deep); }
+  .confirm-submit-btn {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    padding: 11px 18px;
+    border: none;
+    border-radius: 6px;
+    background: var(--seal);
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .confirm-submit-btn:hover { background: #8f3527; }
+  .confirm-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
   @media (max-width: 480px) {
     .confirm-bar-inner { flex-direction: column; align-items: stretch; }
     .confirm-bar-actions { justify-content: space-between; }
@@ -593,7 +607,7 @@
 <body>
 
 <header>
-  <a href="/index.html" class="back-link" style="font-size: 18px; font-weight: bold;">← 返回菜單</a>
+ <!-- <a href="/index.html" class="back-link" style="font-size: 18px; font-weight: bold;">← 返回菜單</a>-->
 
   <h1>AI 湯品推薦</h1>
   <div class="sub">將臉對準畫面，偵測到臉部會自動拍照</div>
@@ -605,11 +619,12 @@
 
 <div class="confirm-bar" id="confirm-bar">
   <div class="confirm-bar-inner">
-    <button type="button" class="confirm-cancel-btn" onclick="cancelAndReturn()">取消，返回首頁</button>
-    <div class="confirm-count">已選擇 <strong id="confirm-count-num">0</strong> 道餐點</div>
+    <!--<button type="button" class="confirm-cancel-btn" onclick="cancelAndReturn()">返回菜單</button>-->
+    <div class="confirm-count">購物車共 <strong id="confirm-count-num">0</strong> 份餐點</div>
     <div class="confirm-bar-actions">
       <button type="button" class="confirm-view-btn" onclick="openSelectedCart()">查看購物車</button>
-      <button type="button" class="confirm-btn" onclick="confirmOrder()">確認點完餐</button>
+      <button type="button" class="confirm-btn" onclick="confirmOrder()">回主菜單</button>
+      <button type="button" class="confirm-submit-btn" id="direct-submit-btn-bar" onclick="submitOrderDirectly()">送出訂單</button>
     </div>
   </div>
 </div>
@@ -630,9 +645,41 @@ let selectedFile = null;
 let cameraStream = null;
 // 每道 AI 推薦湯品各自記錄選擇數量
 const recommendedQuantities = {};
-// 使用者在這次分析結果中按過「加入購物車」的品項，key 是 dish_id，
-// 這樣可以一次選好幾道湯品，最後按「確認點完餐」才一起送回菜單頁的購物車
-const selectedCartItems = {};
+// ============ 與菜單頁共用的購物車 ============
+// 兩個頁面都讀寫 localStorage 的 'cart'，格式：[{ dish_id, name, price, quantity }]
+// 任何一頁加入的品項都會累積在同一份購物車，也可以在任何一頁送出
+function loadCart() {
+  try {
+    const raw = localStorage.getItem('cart');
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+function saveCart() {
+  try {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  } catch {}
+}
+let cart = loadCart();
+
+function syncCartFromStorage() {
+  cart = loadCart();
+  updateConfirmBar();
+  if (document.getElementById('cart-overlay').classList.contains('show')) {
+    if (cart.length === 0) closeSelectedCart();
+    else renderSelectedCartModal();
+  }
+}
+// 菜單頁或其他分頁修改購物車時同步
+window.addEventListener('storage', (e) => {
+  if (e.key === 'cart' || e.key === null) syncCartFromStorage();
+});
+window.addEventListener('pageshow', syncCartFromStorage);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) syncCartFromStorage();
+});
 
 function renderUploadUI() {
   document.getElementById('main').innerHTML = `
@@ -1033,14 +1080,31 @@ function showToast(msg) {
 // 這樣使用者可以一次選好幾道推薦湯品，最後再按下方「確認點完餐」一起送回菜單頁
 function addRecommendedToCart(dishId, dishName, price, recordId) {
   const quantity = recommendedQuantities[dishId] || 1;
-  selectedCartItems[dishId] = { dish_id: dishId, name: dishName, price, quantity, record_id: recordId };
 
-  showToast(`已將「${dishName}」${quantity} 份加入清單`);
+  // 先讀最新的共用購物車（菜單頁可能已加過品項），再「累加」數量
+  cart = loadCart();
+  const existing = cart.find(c => String(c.dish_id) === String(dishId));
+  if (existing) {
+    existing.quantity += quantity;
+  } else {
+    cart.push({ dish_id: dishId, name: dishName, price, quantity });
+  }
+  saveCart();
+  if (recordId) {
+    try { localStorage.setItem('cartFacialRecordId', String(recordId)); } catch {}
+  }
+
+  // 加入後數量選擇器歸 1，避免再按一次時重複累加到上次的數量
+  recommendedQuantities[dishId] = 1;
+  const qtyEl = document.getElementById(`recommended-qty-${dishId}`);
+  if (qtyEl) qtyEl.textContent = '1';
+
+  showToast(`已將「${dishName}」${quantity} 份加入購物車`);
   updateConfirmBar();
 }
 
 function updateConfirmBar() {
-  const count = Object.keys(selectedCartItems).length;
+  const count = cart.reduce((sum, c) => sum + c.quantity, 0);
   const bar = document.getElementById('confirm-bar');
   const numEl = document.getElementById('confirm-count-num');
   if (!bar || !numEl) return;
@@ -1050,6 +1114,7 @@ function updateConfirmBar() {
 
 // 「查看購物車」：顯示這次分析目前選好的品項，可調整份數或移除
 function openSelectedCart() {
+  cart = loadCart();
   renderSelectedCartModal();
   document.getElementById('cart-overlay').classList.add('show');
 }
@@ -1060,15 +1125,15 @@ function closeSelectedCart() {
 
 function renderSelectedCartModal() {
   const el = document.getElementById('cart-modal-content');
-  const items = Object.values(selectedCartItems);
+  const items = cart;
   const total = items.reduce((sum, it) => sum + Number(it.price || 0) * it.quantity, 0);
 
   el.innerHTML = `
     <button class="close-btn" onclick="closeSelectedCart()">✕</button>
-    <div class="cart-header"><h3>已選擇的餐點</h3></div>
+    <div class="cart-header"><h3>我的購物車</h3></div>
     <div class="cart-items">
       ${items.length === 0
-        ? '<div class="cart-empty">還沒有選擇任何湯品，先在上方按「加入購物車」吧</div>'
+        ? '<div class="cart-empty">購物車是空的，先去選幾道湯吧</div>'
         : items.map(it => `
           <div class="cart-item">
             <div>
@@ -1089,44 +1154,94 @@ function renderSelectedCartModal() {
           <span>總計</span>
           <span>NT$ ${Math.round(total)}</span>
         </div>
-        <button class="checkout-btn" onclick="confirmOrder()">確認點完餐</button>
+        <button class="checkout-btn" id="direct-submit-btn-modal" onclick="submitOrderDirectly()">送出訂單</button>
+        <button class="add-cart-btn" style="margin-top:10px;" onclick="confirmOrder()">回主菜單</button>
       </div>
     ` : ''}
   `;
 }
 
 function changeSelectedQty(dishId, delta) {
-  const item = selectedCartItems[dishId];
+  cart = loadCart();
+  const item = cart.find(c => String(c.dish_id) === String(dishId));
   if (!item) return;
   item.quantity += delta;
   if (item.quantity <= 0) {
-    delete selectedCartItems[dishId];
+    cart = cart.filter(c => String(c.dish_id) !== String(dishId));
   }
+  saveCart();
   updateConfirmBar();
   renderSelectedCartModal();
-  if (Object.keys(selectedCartItems).length === 0) closeSelectedCart();
+  if (cart.length === 0) closeSelectedCart();
 }
 
 document.getElementById('cart-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'cart-overlay') closeSelectedCart();
 });
 
-// 取消這次的選擇，直接回首頁（因為選擇清單只存在這個頁面的記憶體裡，
-// 沒按過「確認點完餐」就不會寫進 localStorage，離開頁面就等於自動取消）
+// 購物車已經即時存在 localStorage，與菜單頁共用，所以返回菜單不會遺失任何品項
 function cancelAndReturn() {
   window.location.href = '/index.html';
 }
 
-// 把這次分析選好的所有品項一次存進 localStorage，再跳回菜單頁一起加入購物車
+// 回菜單繼續點餐（購物車內容已同步，不需要額外傳遞）
 function confirmOrder() {
-  const items = Object.values(selectedCartItems);
-  if (items.length === 0) return;
-  localStorage.setItem('pendingCartItems', JSON.stringify(items));
   window.location.href = '/index.html';
+}
+
+// 直接把這次選好的品項送出訂單，不用先跳回菜單頁，訂單會立刻出現在廚房後台
+async function submitOrderDirectly() {
+  cart = loadCart(); // 送出前以最新的共用購物車為準（含菜單頁加的品項）
+  const items = cart.slice();
+  if (items.length === 0) return;
+
+  const barBtn = document.getElementById('direct-submit-btn-bar');
+  const modalBtn = document.getElementById('direct-submit-btn-modal');
+  [barBtn, modalBtn].forEach(btn => {
+    if (btn) { btn.disabled = true; btn.textContent = '送出中...'; }
+  });
+
+  const storedRecordId = localStorage.getItem('cartFacialRecordId');
+  const recordId = storedRecordId ? Number(storedRecordId) || storedRecordId : null;
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        items: items.map(it => ({ dish_id: it.dish_id, quantity: it.quantity })),
+        guest_name: '',
+        facial_record_id: recordId
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast(data.error || '訂單送出失敗');
+      return;
+    }
+
+    cart = [];
+    saveCart();
+    try { localStorage.removeItem('cartFacialRecordId'); } catch {}
+    updateConfirmBar();
+    closeSelectedCart();
+    showToast('訂單已送出，謝謝您的訂購！');
+  } catch {
+    showToast('連線失敗，請確認伺服器是否正常運作');
+  } finally {
+    [barBtn, modalBtn].forEach(btn => {
+      if (btn) { btn.disabled = false; btn.textContent = '直接送出訂單'; }
+    });
+  }
 }
 
 // 初始化：訪客與會員都直接進入上傳畫面
 renderUploadUI();
+updateConfirmBar(); // 菜單頁已加入的品項，一進來就顯示在底部列
 </script>
 
 </body>

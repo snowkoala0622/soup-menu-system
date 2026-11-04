@@ -721,9 +721,18 @@ async function load() {
   buildTabs();
   render();
   checkPendingCartItem();
+  updateCartFab(); // 確保重新整理頁面、從別頁跳回來時，從 localStorage 復原的購物車也能正確顯示浮動按鈕
 }
 
-let pendingFacialRecordId = null;
+// AI 推薦紀錄 id 也存進 localStorage，讓兩個頁面共用、重新整理不會遺失
+let pendingFacialRecordId = localStorage.getItem('cartFacialRecordId') || null;
+function setPendingFacialRecordId(v) {
+  pendingFacialRecordId = v || null;
+  try {
+    if (v) localStorage.setItem('cartFacialRecordId', String(v));
+    else localStorage.removeItem('cartFacialRecordId');
+  } catch {}
+}
 
 // 從 AI 推薦頁按「確認點完餐」跳轉回來時，把選好的品項一次加入購物車。
 // 新版會把多道品項存成陣列（pendingCartItems），舊版只會存一筆（pendingCartItem），
@@ -737,7 +746,7 @@ function checkPendingCartItem() {
       if (Array.isArray(items) && items.length > 0) {
         items.forEach(({ dish_id, record_id, quantity }) => {
           addToCart(dish_id, quantity || 1);
-          if (record_id) pendingFacialRecordId = record_id;
+          if (record_id) setPendingFacialRecordId(record_id);
         });
         setTimeout(() => showToast(`已將 AI 推薦的 ${items.length} 道湯品加入購物車`), 300);
       }
@@ -751,7 +760,7 @@ function checkPendingCartItem() {
   try {
     const { dish_id, record_id, quantity } = JSON.parse(pending);
     addToCart(dish_id, quantity || 1);
-    if (record_id) pendingFacialRecordId = record_id;
+    if (record_id) setPendingFacialRecordId(record_id);
     setTimeout(() => showToast(`已將 AI 推薦的湯品 ${quantity || 1} 份加入購物車`), 300);
   } catch {}
 }
@@ -908,7 +917,45 @@ document.getElementById('overlay').addEventListener('click', (e) => {
 });
 
 // ============ 購物車功能 ============
-let cart = []; // [{ dish_id, name, price, quantity }]
+// 購物車存進 localStorage，這樣從菜單頁跳到 AI 推薦頁再跳回來（或重新整理頁面）
+// 時，原本已經加好的品項不會憑空消失
+function loadCart() {
+  try {
+    const raw = localStorage.getItem('cart');
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+function saveCart() {
+  try {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  } catch {}
+}
+
+let cart = loadCart(); // [{ dish_id, name, price, quantity }]
+
+// 從 localStorage 重新讀取購物車（其他頁面或分頁可能已經改過），並更新畫面
+function syncCartFromStorage() {
+  cart = loadCart();
+  pendingFacialRecordId = localStorage.getItem('cartFacialRecordId') || null;
+  updateCartFab();
+  if (document.getElementById('cart-overlay').classList.contains('show')) {
+    if (cart.length === 0) closeCart();
+    else renderCartModal();
+  }
+}
+
+// 另一個分頁修改購物車時同步
+window.addEventListener('storage', (e) => {
+  if (e.key === 'cart' || e.key === 'cartFacialRecordId' || e.key === null) syncCartFromStorage();
+});
+// 從 AI 推薦頁按上一頁回來（瀏覽器可能直接還原舊頁面快取）時同步
+window.addEventListener('pageshow', syncCartFromStorage);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) syncCartFromStorage();
+});
 
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -921,6 +968,7 @@ function addToCart(dishId, quantity = 1) {
   const d = allDishes.find(x => String(x.id) === String(dishId));
   if (!d) return;
 
+  cart = loadCart(); // 先拿最新的購物車再累加，避免蓋掉其他頁面剛加的品項
   const addQuantity = Math.max(1, Number(quantity) || 1);
   const existing = cart.find(c => String(c.dish_id) === String(d.id));
   if (existing) {
@@ -934,6 +982,7 @@ function addToCart(dishId, quantity = 1) {
     });
   }
   showToast(`已將「${d.name}」${addQuantity} 份加入購物車`);
+  saveCart();
   updateCartFab();
 }
 
@@ -945,6 +994,7 @@ function updateCartFab() {
 }
 
 function openCart() {
+  syncCartFromStorage();
   renderCartModal();
   document.getElementById('cart-overlay').classList.add('show');
 }
@@ -954,12 +1004,14 @@ function closeCart() {
 }
 
 function changeQty(dishId, delta) {
+  cart = loadCart();
   const item = cart.find(c => c.dish_id === dishId);
   if (!item) return;
   item.quantity += delta;
   if (item.quantity <= 0) {
     cart = cart.filter(c => c.dish_id !== dishId);
   }
+  saveCart();
   updateCartFab();
   renderCartModal();
   if (cart.length === 0) closeCart();
@@ -1055,6 +1107,16 @@ async function submitOrder() {
   const btn = document.getElementById('checkout-btn');
   const guestName = '';
 
+  // 送出前再讀一次，確保包含 AI 推薦頁剛加入的品項
+  cart = loadCart();
+  pendingFacialRecordId = localStorage.getItem('cartFacialRecordId') || null;
+  if (cart.length === 0) {
+    showToast('購物車是空的');
+    closeCart();
+    updateCartFab();
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = '送出中...';
 
@@ -1081,7 +1143,8 @@ async function submitOrder() {
     }
 
     cart = [];
-    pendingFacialRecordId = null;
+    saveCart();
+    setPendingFacialRecordId(null);
     updateCartFab();
     closeCart();
     showToast('訂單已送出，謝謝您的訂購！');
