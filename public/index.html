@@ -662,7 +662,7 @@
       <span id="member-label">會員登入</span>
     </a>
   </div>
-  
+
   <h1>補 湯 菜 單</h1>
   <div class="sub">以時令藥材，溫養寸心氣血</div>
   <div class="divider"></div>
@@ -719,7 +719,26 @@ async function load() {
 
 let pendingFacialRecordId = null;
 
+// 從 AI 推薦頁按「確認點完餐」跳轉回來時，把選好的品項一次加入購物車。
+// 新版會把多道品項存成陣列（pendingCartItems），舊版只會存一筆（pendingCartItem），
+// 兩種都處理，避免瀏覽器裡還殘留舊格式的資料時失效。
 function checkPendingCartItem() {
+  const pendingList = localStorage.getItem('pendingCartItems');
+  if (pendingList) {
+    localStorage.removeItem('pendingCartItems');
+    try {
+      const items = JSON.parse(pendingList);
+      if (Array.isArray(items) && items.length > 0) {
+        items.forEach(({ dish_id, record_id, quantity }) => {
+          addToCart(dish_id, quantity || 1);
+          if (record_id) pendingFacialRecordId = record_id;
+        });
+        setTimeout(() => showToast(`已將 AI 推薦的 ${items.length} 道湯品加入購物車`), 300);
+      }
+    } catch {}
+    return;
+  }
+
   const pending = localStorage.getItem('pendingCartItem');
   if (!pending) return;
   localStorage.removeItem('pendingCartItem');
